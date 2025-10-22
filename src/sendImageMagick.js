@@ -3,58 +3,15 @@ import { execFileSync } from "child_process";
 import os from "os";
 import path from "path";
 import fs from "fs";
-import HID from "node-hid";
 import Jimp from "jimp";
-import { send, sendConfigFrame } from "./timesync.js";
-
-const VENDOR_ID = 0x320f;
-const PRODUCT_ID = 0x5055;
-
-const delay = (ms) => new Promise((r) => setTimeout(r, ms));
-
-function toRGB565(r, g, b) {
-  const r5 = (r >> 3) & 0x1f;
-  const g6 = (g >> 2) & 0x3f;
-  const b5 = (b >> 3) & 0x1f;
-  return (r5 << 11) | (g6 << 5) | b5;
-}
-
-function findDevice() {
-  const d = HID.devices().find(
-    (dev) => dev.vendorId === VENDOR_ID && dev.productId === PRODUCT_ID
-  );
-  if (!d) throw new Error("GMK87 device not found");
-
-  // Prefer opening by vid/pid on macOS; if it fails, retry once.
-  try {
-    return process.platform === "darwin"
-      ? new HID.HID(VENDOR_ID, PRODUCT_ID)
-      : new HID.HID(d.path);
-  } catch (e1) {
-    if (process.platform === "darwin") {
-      try {
-        return new HID.HID(VENDOR_ID, PRODUCT_ID);
-      } catch (e2) {
-        throw new Error(`Failed to open HID device: ${e2.message}`);
-      }
-    }
-    throw new Error(`Failed to open HID device: ${e1.message}`);
-  }
-}
-
-// Robust wrapper around send(); retries transient EPIPE/EBUSY/etc.
-async function trySend(device, cmd, payload = undefined, tries = 3) {
-  for (let i = 0; i < tries; i++) {
-    try {
-      if (payload === undefined) send(device, cmd);
-      else send(device, cmd, payload); // payload must be 60 bytes
-      return;
-    } catch (e) {
-      if (i === tries - 1) throw e;
-      await delay(4);
-    }
-  }
-}
+import {
+  openDevice,
+  send,
+  sendConfigFrame,
+  trySend,
+  delay,
+  toRGB565,
+} from "./lib/device.js";
 
 // args: --key value | --key=value
 function parseArgs(argv) {
@@ -224,11 +181,9 @@ export async function processAndSend(
   try {
     magickConvert(imagePath, tmp);
 
-    device = findDevice();
+    device = openDevice();
     console.log("init (C#-style)...");
     await trySend(device, 0x01);
-    // NOTE: if your sendConfigFrame() internally calls send(0x06, payload),
-    // it's fine to just invoke it directly:
     sendConfigFrame(device, shownImage, 1, 1);
     await trySend(device, 0x02);
     await trySend(device, 0x23);

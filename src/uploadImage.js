@@ -1,24 +1,12 @@
 // src/uploadImage.js
-import HID from "node-hid";
 import Jimp from "jimp";
-import { sendConfigFrame, send } from "./timesync.js";
-
-const VENDOR_ID = 0x320f;
-const PRODUCT_ID = 0x5055;
-
-// -------------------------------------------------------
-// Helpers
-// -------------------------------------------------------
-function toRGB565(r, g, b) {
-  const r5 = (r >> 3) & 0x1f;
-  const g6 = (g >> 2) & 0x3f;
-  const b5 = (b >> 3) & 0x1f;
-  return (r5 << 11) | (g6 << 5) | b5;
-}
-
-function delay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+import {
+  openDevice,
+  sendConfigFrame,
+  send,
+  delay,
+  toRGB565,
+} from "./lib/device.js";
 
 // -------------------------------------------------------
 // Convert image to HID data frames (60-byte payloads)
@@ -51,7 +39,7 @@ async function loadImageToFrames(path, imageIndex = 0) {
   let bufIndex = 0x08;
   const command = Buffer.alloc(64, 0);
 
-  // Fixed “bytes in frame” = 56 (0x38), as per device expectation.
+  // Fixed "bytes in frame" = 56 (0x38), as per device expectation.
   const BYTES_PER_FRAME = 64 - 8; // 56
   const PAYLOAD_LEN = 60;
 
@@ -62,10 +50,10 @@ async function loadImageToFrames(path, imageIndex = 0) {
     const startOffsetMsb = (startOffset >> 8) & 0xff;
 
     // Header inside payload
-    command[0x04] = 0x38;            // 56 data bytes per frame
-    command[0x05] = startOffsetLsb;  // LSB
-    command[0x06] = startOffsetMsb;  // MSB
-    command[0x07] = imageIndex;      // image slot selector
+    command[0x04] = 0x38; // 56 data bytes per frame
+    command[0x05] = startOffsetLsb; // LSB
+    command[0x06] = startOffsetMsb; // MSB
+    command[0x07] = imageIndex; // image slot selector
 
     // Push the 60-byte payload (bytes 4..63)
     frames.push(Buffer.from(command.subarray(4, 64)));
@@ -85,7 +73,7 @@ async function loadImageToFrames(path, imageIndex = 0) {
       const rgb565 = toRGB565(r, g, b);
 
       command[bufIndex++] = (rgb565 >> 8) & 0xff; // MSB
-      command[bufIndex++] = rgb565 & 0xff;        // LSB
+      command[bufIndex++] = rgb565 & 0xff; // LSB
 
       if (bufIndex >= 64) {
         transmit();
@@ -101,35 +89,10 @@ async function loadImageToFrames(path, imageIndex = 0) {
 }
 
 // -------------------------------------------------------
-// Device detection
-// -------------------------------------------------------
-function findDevice() {
-  const d = HID.devices().find(
-    (dev) => dev.vendorId === VENDOR_ID && dev.productId === PRODUCT_ID
-  );
-  if (!d) throw new Error("Device not found");
-
-  let device;
-  try {
-    if (process.platform === "darwin") {
-      // On macOS, opening by (vid,pid) is often more reliable than path
-      device = new HID.HID(VENDOR_ID, PRODUCT_ID);
-    } else {
-      device = new HID.HID(d.path);
-    }
-  } catch (e) {
-    console.error("Failed to open HID device:", e.message);
-    process.exit(1);
-  }
-
-  return device;
-}
-
-// -------------------------------------------------------
 // Main entry
 // -------------------------------------------------------
 async function main() {
-  const device = findDevice();
+  const device = openDevice();
 
   console.log("Starting image upload sequence...");
 
