@@ -1,0 +1,33 @@
+{
+  "name": "gmk87-hid-uploader",
+  "version": "1.0.0",
+  "description": "Node.js utilities for uploading images and syncing time on GMK87 keyboard displays via HID protocol",
+  "type": "module",
+  "main": "src/timesync.js",
+  "scripts": {
+    "timesync": "node src/timesync.js",
+    "upload": "node src/uploadImage.js",
+    "sendimage": "node src/sendImageMagick.js"
+  },
+  "dependencies": {
+    "jimp": "^0.22.10",
+    "node-hid": "^2.2.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "keywords": [
+    "gmk87",
+    "hid",
+    "keyboard",
+    "display",
+    "image-upload",
+    "time-sync"
+  ],
+  "author": "Codedgar",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/gmk87-hid-uploader"
+  }
+}
