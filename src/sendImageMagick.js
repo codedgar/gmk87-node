@@ -6,14 +6,13 @@ import fs from "fs";
 import Jimp from "jimp";
 import {
   openDevice,
-  send,
+  drainDevice,
   sendConfigFrame,
   trySend,
   delay,
   toRGB565,
 } from "./lib/device.js";
 
-// args: --key value | --key=value
 function parseArgs(argv) {
   const out = {};
   for (let i = 2; i < argv.length; i++) {
@@ -36,7 +35,6 @@ function parseArgs(argv) {
   return out;
 }
 
-// ImageMagick runner: tries magick, magick convert, convert
 function magickConvert(inPath, outPath) {
   const common = [
     inPath,
@@ -86,29 +84,23 @@ async function buildFramesFromBitmap(bmpPath, imageIndex) {
 
   const frames = [];
   const command = Buffer.alloc(64, 0);
-  const BYTES_PER_FRAME = 64 - 8; // 56 bytes of pixel data
+  
+  const BYTES_PER_FRAME = 0x38;
+  let startOffset = 0x00;
 
-  // IMPORTANT: mirror C# behavior
-  // var startOffset = imageIndex * 0x28;  // not 0x00 for image 1
-  let startOffset = imageIndex * 0x28;
-
-  let bufIndex = 0x08; // first pixel byte index in 64B report
+  let bufIndex = 0x08;
 
   function transmit() {
     if (bufIndex === 0x08) return;
 
-    // header inside the 60B payload
-    command[0x04] = 0x38; // 56 data bytes in this frame
-    command[0x05] = startOffset & 0xff; // offset LSB
-    command[0x06] = (startOffset >> 8) & 0xff; // offset MSB
-    command[0x07] = imageIndex; // image slot (0 or 1)
+    command[0x04] = BYTES_PER_FRAME;
+    command[0x05] = startOffset & 0xff;
+    command[0x06] = (startOffset >> 8) & 0xff;
+    command[0x07] = imageIndex;
 
     frames.push(Buffer.from(command.subarray(4, 64)));
 
-    // advance by the 56 bytes of pixel data we just filled
     startOffset += BYTES_PER_FRAME;
-
-    // reset pixel area
     bufIndex = 0x08;
     command.fill(0, 0x08);
   }
@@ -117,44 +109,43 @@ async function buildFramesFromBitmap(bmpPath, imageIndex) {
     for (let x = 0; x < width; x++) {
       const { r, g, b } = Jimp.intToRGBA(img.getPixelColor(x, y));
       const rgb565 = toRGB565(r, g, b);
-      command[bufIndex++] = (rgb565 >> 8) & 0xff; // MSB
-      command[bufIndex++] = rgb565 & 0xff; // LSB
+      command[bufIndex++] = (rgb565 >> 8) & 0xff;
+      command[bufIndex++] = rgb565 & 0xff;
       if (bufIndex >= 64) transmit();
     }
   }
-  transmit(); // flush final partial frame
+  transmit();
   return frames;
 }
 
 async function sendFrames(device, frames) {
   let sent = 0;
+  let failed = 0;
+  
   for (let i = 0; i < frames.length; i++) {
-    // Retry around 0x21 writes improves stability a lot
-    await trySend(device, 0x21, frames[i], 3);
-    sent++;
+    const success = await trySend(device, 0x21, frames[i], 3);
+    
+    if (success) {
+      sent++;
+    } else {
+      failed++;
+      if (failed > 10) {
+        throw new Error(`Too many failed ACKs (${failed}), aborting upload`);
+      }
+    }
 
-    // Gentle pacing: tiny breathers to avoid HID backlog
-    if ((i & 63) === 63) await delay(2); // every 64 frames
-    if ((i & 255) === 255) await delay(4); // every 256 frames
-
-    if ((i & 255) === 0 && i > 0) {
-      console.log(`  sent ${i}/${frames.length}`);
+    if (i % 256 === 0 && i > 0) {
+      console.log(`  Progress: ${i}/${frames.length} (${failed} failed ACKs)`);
     }
   }
-  console.log(`  sent ${sent}/${frames.length}`);
+  
+  console.log(`  Sent ${sent}/${frames.length} frames (${failed} failed ACKs)`);
+  
+  if (failed > 0) {
+    console.warn(`  ⚠ Warning: ${failed} frames may not have been acknowledged`);
+  }
 }
 
-/**
- * Stable flow:
- *  1) 0x01
- *  2) sendConfigFrame(shownImage, 1, 1)  // shownImage: 0=time, 1=slot0, 2=slot1
- *  3) 0x02
- *  4) 0x23
- *  5) 0x01
- *  6) sleep ~500–600ms
- *  7) send pixels (0x21 ...)
- *  8) 0x02   // commit once at the end
- */
 export async function processAndSend(
   imagePath,
   imageIndex = 0,
@@ -174,30 +165,63 @@ export async function processAndSend(
       .slice(2)}.bmp`
   );
 
-  // 0=time widget, 1=slot0, 2=slot1
-  const shownImage = showAfter ? imageIndex + 1 : 1;
+  const shownImage = showAfter ? imageIndex + 1 : 0;
 
   let device;
   try {
     magickConvert(imagePath, tmp);
 
     device = openDevice();
-    console.log("init (C#-style)...");
-    await trySend(device, 0x01);
-    sendConfigFrame(device, shownImage, 1, 1);
-    await trySend(device, 0x02);
-    await trySend(device, 0x23);
-    await trySend(device, 0x01);
-    await delay(600); // slightly longer pause improves first-row stability
+    
+    // CRITICAL: Drain any stale/pending responses first
+    console.log("Clearing device buffer...");
+    const stale = await drainDevice(device);
+    if (stale.length > 0) {
+      console.log(`  Drained ${stale.length} stale messages`);
+    }
+    
+    console.log("Initializing with ACK handshake...");
+    
+    let success;
+    
+    success = await trySend(device, 0x01);
+    if (!success) throw new Error("Device not responding to INIT command!");
+    
+    await delay(3);
+    
+    success = await trySend(device, 0x01);
+    if (!success) throw new Error("Device not responding to 2nd INIT!");
+    
+    await delay(2);
+    
+    success = await sendConfigFrame(device, shownImage, 1, 1);
+    if (!success) throw new Error("Device not responding to CONFIG!");
+    
+    await delay(25);
+    
+    success = await trySend(device, 0x02);
+    if (!success) throw new Error("Device not responding to COMMIT!");
+    
+    await delay(18);
+    
+    success = await trySend(device, 0x23);
+    if (!success) throw new Error("Device not responding to 0x23 command!");
 
-    console.log(`building frames for slot ${imageIndex}...`);
+    console.log("Device ready! Starting pixel upload...");
+    await delay(263);
+
+    console.log(`Building frames for slot ${imageIndex}...`);
     const frames = await buildFramesFromBitmap(tmp, imageIndex);
 
-    console.log(`sending ${frames.length} frames...`);
+    console.log(`Sending ${frames.length} frames with ACK verification...`);
     await sendFrames(device, frames);
 
-    await trySend(device, 0x02); // single commit at the end
-    console.log("commit sent.");
+    success = await trySend(device, 0x02);
+    if (!success) {
+      console.warn("Final COMMIT may not have been acknowledged");
+    }
+    
+    console.log("✓ Upload complete!");
   } finally {
     try {
       if (device) device.close();
@@ -208,11 +232,10 @@ export async function processAndSend(
   }
 }
 
-// CLI
 if (import.meta.url === `file://${process.argv[1]}`) {
   const args = parseArgs(process.argv);
   const file = args.file || args.f;
-  const slot = Number(args.slot ?? 0); // 0 or 1
+  const slot = Number(args.slot ?? 0);
   const show =
     args.show === undefined ? true : String(args.show).toLowerCase() !== "false";
 
