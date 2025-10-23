@@ -6,14 +6,19 @@
 
 Node.js utilities for uploading images and syncing time on GMK87 keyboard displays via HID protocol.
 
+
+
 ## Status
 
-**Work in progress.** The upload works but consistency is hit-or-miss. Looking for help improving reliability, especially around:
+**Stable but still improving.**  
+The upload process now works more consistently, but it’s important to give the device time to _"breathe"_ between uploads.
 
-- First row corruption (white pixels/artifacts)
-- Frame timing and device backpressure
-- HID write failures (EPIPE, EBUSY)
-- Platform-specific quirks (macOS vs Linux vs Windows)
+Current priorities:
+- Fine-tuning pacing delays
+- Better understanding command timing (especially `0x23`)
+- Further cross-platform testing on macOS, Windows, and Linux
+
+---
 
 ## Hardware
 
