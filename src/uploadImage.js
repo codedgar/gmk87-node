@@ -7,6 +7,9 @@ import {
   delay,
   toRGB565,
   trySend,
+  waitForReady,
+  resetDeviceState,
+  reviveDevice
 } from "./lib/device.js";
 
 async function loadImageToFrames(path, imageIndex = 0) {
@@ -63,67 +66,69 @@ async function loadImageToFrames(path, imageIndex = 0) {
 }
 
 async function main() {
-  const device = openDevice();
+  let device = openDevice();
 
-  // Drain stale messages first
   console.log("Clearing device buffer...");
   const stale = await drainDevice(device);
   if (stale.length > 0) {
     console.log(`  Drained ${stale.length} stale messages`);
   }
 
+  await resetDeviceState(device);
+
   console.log("Starting image upload with ACK verification...");
 
   let success;
-  
+
+  // INIT sequence
   success = await trySend(device, 0x01);
-  if (!success) throw new Error("Device not responding to INIT!");
-  
+  if (!success) {
+        console.warn("No INIT ACK — trying soft revive...");
+        const revived = await reviveDevice(device);
+        if (!revived) throw new Error("Device could not be revived.");
+        device = revived; // swap handle
+  }
   await delay(3);
-  
+
   success = await trySend(device, 0x01);
   if (!success) throw new Error("Device not responding to 2nd INIT!");
-  
   await delay(2);
-  
+
   success = await sendConfigFrame(device, 2, 1, 1);
   if (!success) throw new Error("Device not responding to CONFIG!");
-  
   await delay(25);
-  
+
   success = await trySend(device, 0x02);
   if (!success) throw new Error("Device not responding to COMMIT!");
-  
   await delay(18);
-  
+
   success = await trySend(device, 0x23);
   if (!success) throw new Error("Device not responding to 0x23!");
 
-  console.log("Device confirmed ready! Waiting 263ms...");
-  await delay(263);
+  // Replace fixed delay with actual ready wait
+  await waitForReady(device);
 
   async function sendFrames(label, frames) {
     console.log(`Sending ${frames.length} frames for ${label}...`);
     let sent = 0;
     let failed = 0;
-    
+
     for (let i = 0; i < frames.length; i++) {
       const success = await trySend(device, 0x21, frames[i], 3);
-      
-      if (success) {
-        sent++;
-      } else {
+
+      if (success) sent++;
+      else {
         failed++;
         if (failed > 10) {
           throw new Error(`Too many failed ACKs, aborting`);
         }
       }
-      
+
       if (i % 256 === 0 && i > 0) {
         console.log(`  Progress: ${i}/${frames.length} (${failed} failed)`);
       }
     }
-    
+
     console.log(`${label} complete! ${sent}/${frames.length} (${failed} failed ACKs)`);
   }
 
@@ -138,9 +143,7 @@ async function main() {
   await sendFrames("Image slot 1", frames1);
 
   success = await trySend(device, 0x02);
-  if (!success) {
-    console.warn("Final COMMIT may not have been acknowledged");
-  }
+  if (!success) console.warn("Final COMMIT may not have been acknowledged");
 
   console.log("\n✓ Upload complete!");
   device.close();

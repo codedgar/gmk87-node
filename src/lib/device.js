@@ -72,23 +72,23 @@ async function drainDevice(device, timeoutMs = 200) {
   return new Promise((resolve) => {
     const drained = [];
     let lastDataTime = Date.now();
-    
+
     const checkDone = setInterval(() => {
       if (Date.now() - lastDataTime > 100) {
         clearInterval(checkDone);
-        device.removeAllListeners('data');
+        device.removeAllListeners("data");
         resolve(drained);
       }
     }, 50);
-    
-    device.on('data', (data) => {
+
+    device.on("data", (data) => {
       lastDataTime = Date.now();
-      drained.push(Buffer.from(data).toString('hex'));
+      drained.push(Buffer.from(data).toString("hex"));
     });
-    
+
     setTimeout(() => {
       clearInterval(checkDone);
-      device.removeAllListeners('data');
+      device.removeAllListeners("data");
       resolve(drained);
     }, timeoutMs);
   });
@@ -112,12 +112,12 @@ async function readResponse(device, timeoutMs = 150) {
     const timeout = setTimeout(() => {
       if (!responded) {
         responded = true;
-        device.removeAllListeners('data');
+        device.removeAllListeners("data");
         resolve(null);
       }
     }, timeoutMs);
 
-    device.once('data', (data) => {
+    device.once("data", (data) => {
       if (!responded) {
         responded = true;
         clearTimeout(timeout);
@@ -152,21 +152,25 @@ async function send(device, command, data60 = null, waitForAck = true) {
   }
 
   const response = await readResponse(device, 150);
-  
+
   if (!response) {
-    console.warn(`  ⚠ No ACK for cmd 0x${command.toString(16).padStart(2, '0')}`);
+    console.warn(
+      `  ⚠ No ACK for cmd 0x${command.toString(16).padStart(2, "0")}`
+    );
     return false;
   }
 
   const expectedAck = buf.slice(0, 8);
   const receivedAck = response.slice(0, 8);
-  
+
   if (expectedAck.equals(receivedAck)) {
     return true;
   } else {
-    console.warn(`  ✗ ACK mismatch for cmd 0x${command.toString(16).padStart(2, '0')}`);
-    console.warn(`    Expected: ${expectedAck.toString('hex')}`);
-    console.warn(`    Received: ${receivedAck.toString('hex')}`);
+    console.warn(
+      `  ✗ ACK mismatch for cmd 0x${command.toString(16).padStart(2, "0")}`
+    );
+    console.warn(`    Expected: ${expectedAck.toString("hex")}`);
+    console.warn(`    Received: ${receivedAck.toString("hex")}`);
     return false;
   }
 }
@@ -174,29 +178,48 @@ async function send(device, command, data60 = null, waitForAck = true) {
 async function trySend(device, cmd, payload = undefined, tries = 3) {
   for (let i = 0; i < tries; i++) {
     try {
-      let success;
-      if (payload === undefined) {
-        success = await send(device, cmd);
-      } else {
-        success = await send(device, cmd, payload);
-      }
-      
-      if (success) {
-        return true;
-      }
-      
-      if (i < tries - 1) {
-        await delay(10);
-      }
+      const success =
+        payload === undefined
+          ? await send(device, cmd)
+          : await send(device, cmd, payload);
+
+      if (success) return true;
+
+      if (i < tries - 1) await delay(10);
     } catch (e) {
       if (i === tries - 1) throw e;
       await delay(10);
     }
   }
-  
-  console.error(`Failed to send cmd 0x${cmd.toString(16).padStart(2, '0')} after ${tries} attempts`);
+
+  console.error(
+    `Failed to send cmd 0x${cmd.toString(16).padStart(2, "0")} after ${tries} attempts`
+  );
   return false;
 }
+
+// -------------------------------------------------------
+// Wait-until-ready logic (NEW)
+// -------------------------------------------------------
+
+async function waitForReady(device, timeoutMs = 1000) {
+  console.log("Waiting for device to report ready (0x23)...");
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const resp = await readResponse(device, 100);
+    if (resp && resp.length >= 4 && resp[3] === 0x23) {
+      console.log(`✓ Device reported ready after ${Date.now() - start} ms`);
+      return true;
+    }
+    await delay(10);
+  }
+  console.warn("⚠ Timed out waiting for ready (0x23) response");
+  return false;
+}
+
+// -------------------------------------------------------
+// Configuration Command
+// -------------------------------------------------------
 
 async function sendConfigFrame(
   device,
@@ -239,6 +262,99 @@ async function sendConfigFrame(
   return await send(device, 0x06, command.subarray(4));
 }
 
+/**
+ * Fully resets the GMK87's state machine before INIT.
+ * Flushes any pending responses, sends a dummy 0x00 and 0x23,
+ * waits for quiet for up to 500 ms.
+ */
+export async function resetDeviceState(device) {
+  console.log("Resetting device state...");
+  // Try to wake/clear with 0x00
+  await trySend(device, 0x00, undefined, 1);
+  await delay(50);
+
+  // Send a Ready signal to flush any leftover 0x23 acks
+  await trySend(device, 0x23, undefined, 1);
+
+  // Drain anything that comes back
+  const stale = await drainDevice(device, 500);
+  if (stale.length) {
+    console.log(`  Cleared ${stale.length} residual messages`);
+  } else {
+    console.log("  No residual messages in device buffer");
+  }
+
+  // Let the MCU breathe a bit before INIT
+  await delay(200);
+  console.log("Device state reset complete.");
+}
+
+/**
+ * Try to revive a non-responsive HID endpoint without power-cycling.
+ * Sends a zero-length packet and reopens the device up to 6 times.
+ * After 3 failures, waits longer before doing the remaining 3 attempts.
+ */
+export async function reviveDevice(device) {
+  console.log("Attempting soft HID revive...");
+
+  // Zero-length "kick" to flush endpoint
+  try {
+    const kick = Buffer.alloc(64, 0x00);
+    kick[0] = REPORT_ID;
+    device.write([...kick]);
+    await delay(150);
+  } catch {
+    // ignore write errors
+  }
+
+  let reopened;
+  for (let attempt = 1; attempt <= 6; attempt++) {
+    // After 3 failed tries, longer cooldown before the last 3
+    if (attempt === 4) {
+      console.log("  Extended cooldown before final recovery phase...");
+      await delay(2000); // 2-second cooldown
+    }
+
+    const backoff = attempt * 100; // incremental backoff 100–600 ms
+    try {
+      if (reopened) {
+        try {
+          reopened.close();
+        } catch {}
+      }
+      device.close();
+    } catch {}
+
+    await delay(150);
+
+    try {
+      reopened = openDevice();
+      console.log(`  Reopen attempt ${attempt}: OK`);
+
+      await drainDevice(reopened, 300);
+
+      const ok = await trySend(reopened, 0x01);
+      if (ok) {
+        console.log(`✓ Device revived successfully on attempt ${attempt}.`);
+        return reopened;
+      } else {
+        console.warn(`  No ACK on INIT during attempt ${attempt}.`);
+      }
+    } catch (err) {
+      console.warn(`  Reopen attempt ${attempt} failed: ${err.message}`);
+    }
+
+    console.log(`  Waiting ${backoff} ms before next attempt...`);
+    await delay(backoff);
+  }
+
+  console.error(
+    "✗ Soft HID revive failed after 6 attempts — physical replug may be required."
+  );
+  return null;
+}
+
+
 // -------------------------------------------------------
 // Exports
 // -------------------------------------------------------
@@ -258,4 +374,5 @@ export {
   trySend,
   sendConfigFrame,
   readResponse,
+  waitForReady, // new export
 };

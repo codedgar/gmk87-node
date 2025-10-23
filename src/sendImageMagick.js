@@ -11,6 +11,9 @@ import {
   trySend,
   delay,
   toRGB565,
+  waitForReady, // 👈 new import
+  resetDeviceState,
+  reviveDevice
 } from "./lib/device.js";
 
 function parseArgs(argv) {
@@ -84,10 +87,9 @@ async function buildFramesFromBitmap(bmpPath, imageIndex) {
 
   const frames = [];
   const command = Buffer.alloc(64, 0);
-  
+
   const BYTES_PER_FRAME = 0x38;
   let startOffset = 0x00;
-
   let bufIndex = 0x08;
 
   function transmit() {
@@ -121,10 +123,10 @@ async function buildFramesFromBitmap(bmpPath, imageIndex) {
 async function sendFrames(device, frames) {
   let sent = 0;
   let failed = 0;
-  
+
   for (let i = 0; i < frames.length; i++) {
     const success = await trySend(device, 0x21, frames[i], 3);
-    
+
     if (success) {
       sent++;
     } else {
@@ -138,9 +140,9 @@ async function sendFrames(device, frames) {
       console.log(`  Progress: ${i}/${frames.length} (${failed} failed ACKs)`);
     }
   }
-  
+
   console.log(`  Sent ${sent}/${frames.length} frames (${failed} failed ACKs)`);
-  
+
   if (failed > 0) {
     console.warn(`  ⚠ Warning: ${failed} frames may not have been acknowledged`);
   }
@@ -172,7 +174,7 @@ export async function processAndSend(
     magickConvert(imagePath, tmp);
 
     device = openDevice();
-    
+
     // CRITICAL: Drain any stale/pending responses first
     console.log("Clearing device buffer...");
     const stale = await drainDevice(device);
@@ -180,35 +182,38 @@ export async function processAndSend(
       console.log(`  Drained ${stale.length} stale messages`);
     }
     
+    await resetDeviceState(device);
+
     console.log("Initializing with ACK handshake...");
-    
+
     let success;
-    
+
     success = await trySend(device, 0x01);
-    if (!success) throw new Error("Device not responding to INIT command!");
-    
+    if (!success) {
+      console.warn("No INIT ACK — trying soft revive...");
+      const revived = await reviveDevice(device);
+      if (!revived) throw new Error("Device could not be revived.");
+      device = revived; // swap handle
+    }
     await delay(3);
-    
+
     success = await trySend(device, 0x01);
     if (!success) throw new Error("Device not responding to 2nd INIT!");
-    
     await delay(2);
-    
+
     success = await sendConfigFrame(device, shownImage, 1, 1);
     if (!success) throw new Error("Device not responding to CONFIG!");
-    
     await delay(25);
-    
+
     success = await trySend(device, 0x02);
     if (!success) throw new Error("Device not responding to COMMIT!");
-    
     await delay(18);
-    
+
     success = await trySend(device, 0x23);
     if (!success) throw new Error("Device not responding to 0x23 command!");
 
-    console.log("Device ready! Starting pixel upload...");
-    await delay(263);
+    // Replaces the old fixed delay with event-driven wait
+    await waitForReady(device);
 
     console.log(`Building frames for slot ${imageIndex}...`);
     const frames = await buildFramesFromBitmap(tmp, imageIndex);
@@ -220,7 +225,7 @@ export async function processAndSend(
     if (!success) {
       console.warn("Final COMMIT may not have been acknowledged");
     }
-    
+
     console.log("✓ Upload complete!");
   } finally {
     try {
