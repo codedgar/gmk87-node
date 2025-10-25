@@ -1,0 +1,204 @@
+{
+  "presets": {
+    "gaming": {
+      "description": "Aggressive red theme with fast effects, Windows key locked",
+      "config": {
+        "underglow": {
+          "effect": 5,
+          "brightness": 9,
+          "speed": 1,
+          "orientation": 1,
+          "rainbow": 0,
+          "hue": {
+            "red": 255,
+            "green": 0,
+            "blue": 0
+          }
+        },
+        "led": {
+          "mode": 3,
+          "saturation": 9,
+          "rainbow": 0,
+          "color": 0
+        },
+        "winlock": 1,
+        "showImage": 0
+      }
+    },
+    "relaxed": {
+      "description": "Calm cyan breathing effect for typing",
+      "config": {
+        "underglow": {
+          "effect": 5,
+          "brightness": 3,
+          "speed": 7,
+          "orientation": 1,
+          "rainbow": 0,
+          "hue": {
+            "red": 0,
+            "green": 255,
+            "blue": 255
+          }
+        },
+        "led": {
+          "mode": 3,
+          "saturation": 3,
+          "rainbow": 0,
+          "color": 4
+        },
+        "winlock": 0,
+        "showImage": 0
+      }
+    },
+    "party": {
+      "description": "Fast rainbow effects for maximum visual impact",
+      "config": {
+        "underglow": {
+          "effect": 12,
+          "brightness": 9,
+          "speed": 0,
+          "orientation": 1,
+          "rainbow": 1,
+          "hue": {
+            "red": 255,
+            "green": 255,
+            "blue": 255
+          }
+        },
+        "led": {
+          "mode": 1,
+          "saturation": 9,
+          "rainbow": 1,
+          "color": 0
+        },
+        "winlock": 0,
+        "showImage": 0
+      }
+    },
+    "minimal": {
+      "description": "All lighting off for minimal distraction",
+      "config": {
+        "underglow": {
+          "effect": 0,
+          "brightness": 0,
+          "speed": 5,
+          "orientation": 1,
+          "rainbow": 0,
+          "hue": {
+            "red": 0,
+            "green": 0,
+            "blue": 0
+          }
+        },
+        "led": {
+          "mode": 3,
+          "saturation": 0,
+          "rainbow": 0,
+          "color": 8
+        },
+        "winlock": 0,
+        "showImage": 0
+      }
+    },
+    "productivity": {
+      "description": "Subtle white backlight for focused work",
+      "config": {
+        "underglow": {
+          "effect": 6,
+          "brightness": 4,
+          "speed": 5,
+          "orientation": 1,
+          "rainbow": 0,
+          "hue": {
+            "red": 255,
+            "green": 255,
+            "blue": 255
+          }
+        },
+        "led": {
+          "mode": 3,
+          "saturation": 5,
+          "rainbow": 0,
+          "color": 7
+        },
+        "winlock": 0,
+        "showImage": 0
+      }
+    },
+    "purple-wave": {
+      "description": "Purple wave effect with moderate brightness",
+      "config": {
+        "underglow": {
+          "effect": 16,
+          "brightness": 6,
+          "speed": 4,
+          "orientation": 1,
+          "rainbow": 0,
+          "hue": {
+            "red": 128,
+            "green": 0,
+            "blue": 255
+          }
+        },
+        "led": {
+          "mode": 3,
+          "saturation": 6,
+          "rainbow": 0,
+          "color": 6
+        },
+        "winlock": 0,
+        "showImage": 0
+      }
+    },
+    "matrix": {
+      "description": "Green rain effect for Matrix-style aesthetics",
+      "config": {
+        "underglow": {
+          "effect": 15,
+          "brightness": 7,
+          "speed": 2,
+          "orientation": 1,
+          "rainbow": 0,
+          "hue": {
+            "red": 0,
+            "green": 255,
+            "blue": 0
+          }
+        },
+        "led": {
+          "mode": 3,
+          "saturation": 7,
+          "rainbow": 0,
+          "color": 3
+        },
+        "winlock": 0,
+        "showImage": 0
+      }
+    },
+    "sunset": {
+      "description": "Warm orange/yellow sunset colors",
+      "config": {
+        "underglow": {
+          "effect": 5,
+          "brightness": 6,
+          "speed": 6,
+          "orientation": 1,
+          "rainbow": 0,
+          "hue": {
+            "red": 255,
+            "green": 128,
+            "blue": 0
+          }
+        },
+        "led": {
+          "mode": 3,
+          "saturation": 6,
+          "rainbow": 0,
+          "color": 1
+        },
+        "winlock": 0,
+        "showImage": 0
+      }
+    }
+  }
+}

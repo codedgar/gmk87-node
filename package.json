@@ -7,7 +7,18 @@
   "scripts": {
     "timesync": "node src/timesync.js",
     "upload": "node src/uploadImage.js",
-    "sendimage": "node src/sendImageMagick.js"
+    "sendimage": "node src/sendImageMagick.js",
+    "lights": "node src/configureLights.js",
+    "preset": "node src/loadPreset.js",
+    "examples": "node src/examples.js"
+  },
+  "bin": {
+    "gmk87-timesync": "./src/timesync.js",
+    "gmk87-upload": "./src/uploadImage.js",
+    "gmk87-sendimage": "./src/sendImageMagick.js",
+    "gmk87-lights": "./src/configureLights.js",
+    "gmk87-preset": "./src/loadPreset.js",
+    "gmk87-examples": "./src/examples.js"
   },
   "dependencies": {
     "jimp": "^0.22.10",
@@ -28,6 +39,6 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/gmk87-hid-uploader"
+    "url": "https://github.com/codedgar/gmk87-node"
   }
 }

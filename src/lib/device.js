@@ -337,17 +337,7 @@ async function sendConfigFrame(
 
   const command = Buffer.alloc(64, 0x00);
 
-  command[0x04] = 0x30;
-  command[0x09] = 0x08;
-  command[0x0a] = 0x08;
-  command[0x0b] = 0x01;
-  command[0x0e] = 0x18;
-  command[0x0f] = 0xff;
-  command[0x11] = 0x0d;
-  command[0x1c] = 0xff;
-  command[0x25] = 0x09;
-  command[0x26] = 0x02;
-  command[0x28] = 0x01;
+  command[0x04] = 0x29; // 0x29 = display/time only, 0x30 = full config including RGB
   command[0x29] = shownImage;
   command[0x2a] = image0NumOfFrames;
   command[0x2b] = toHexNum(now.getSeconds());
@@ -662,6 +652,190 @@ async function uploadImageToDevice(imagePath, imageIndex = 0, options = {}) {
 }
 
 // -------------------------------------------------------
+// RGB Lighting Functions (NEW)
+// -------------------------------------------------------
+
+// Additional constants for lighting
+export const GMK87_USAGE_CONFIG = 0x0061; // Usage ID for config frames
+export const GMK87_USAGE_CHECK = 0x0092; // Usage ID for checks
+
+/**
+ * Finds device with specific usage ID
+ * @param {number} usageId - HID usage ID
+ * @returns {Object|null} Device info or null
+ */
+function findDeviceByUsage(usageId) {
+  const devices = HID.devices(VENDOR_ID, PRODUCT_ID);
+  return devices.find((d) => d.usage === usageId) || null;
+}
+
+/**
+ * Opens device with specific usage ID
+ * @param {number} usageId - HID usage ID
+ * @returns {HID.HID} Opened device
+ * @throws {Error} If device not found
+ */
+function openDeviceByUsage(usageId) {
+  const deviceInfo = findDeviceByUsage(usageId);
+  if (!deviceInfo) {
+    throw new Error(
+      `GMK87 keyboard not found (usage=${usageId}). Make sure it's connected.`
+    );
+  }
+  
+  if (process.platform === "darwin") {
+    return new HID.HID(VENDOR_ID, PRODUCT_ID);
+  } else {
+    return new HID.HID(deviceInfo.path);
+  }
+}
+
+/**
+ * Builds lighting configuration frame
+ * @param {Object} config - Lighting configuration
+ * @returns {Buffer} 64-byte configuration packet
+ */
+function buildLightingFrame(config) {
+  const now = new Date();
+  const buf = Buffer.alloc(64, 0x00);
+  
+  buf[0] = REPORT_ID;
+  buf[3] = 0x06; // Config command
+  buf[4] = 0x30; // Full configuration
+  
+  // Underglow (0x09-0x10)
+  if (config.underglow) {
+    const ug = config.underglow;
+    if (ug.effect !== undefined) buf[9] = ug.effect;
+    if (ug.brightness !== undefined) buf[10] = ug.brightness;
+    if (ug.speed !== undefined) buf[11] = ug.speed;
+    if (ug.orientation !== undefined) buf[12] = ug.orientation;
+    if (ug.rainbow !== undefined) buf[13] = ug.rainbow;
+    if (ug.hue) {
+      if (ug.hue.red !== undefined) buf[14] = ug.hue.red;
+      if (ug.hue.green !== undefined) buf[15] = ug.hue.green;
+      if (ug.hue.blue !== undefined) buf[16] = ug.hue.blue;
+    }
+  }
+  
+  // Windows key lock (0x1d = 29)
+  if (config.winlock !== undefined) {
+    buf[29] = config.winlock;
+  }
+  
+  // Big LED (0x24-0x28 = 36-40)
+  if (config.led) {
+    const led = config.led;
+    if (led.mode !== undefined) buf[36] = led.mode;
+    if (led.saturation !== undefined) buf[37] = led.saturation;
+    if (led.rainbow !== undefined) buf[39] = led.rainbow;
+    if (led.color !== undefined) buf[40] = led.color;
+  }
+  
+  // Image display (0x29 = 41)
+  if (config.showImage !== undefined) {
+    buf[41] = config.showImage;
+  }
+  
+  // Image frames (0x2a = 42, 0x36 = 54)
+  if (config.image1Frames !== undefined) {
+    buf[42] = config.image1Frames;
+  }
+  if (config.image2Frames !== undefined) {
+    buf[54] = config.image2Frames;
+  }
+  
+  // Time and date (0x2b-0x31 = 43-49)
+  buf[43] = toHexNum(now.getSeconds());
+  buf[44] = toHexNum(now.getMinutes());
+  buf[45] = toHexNum(now.getHours());
+  buf[46] = toHexNum(now.getDay());
+  buf[47] = toHexNum(now.getDate());
+  buf[48] = toHexNum(now.getMonth() + 1);
+  buf[49] = toHexNum(now.getFullYear() % 100);
+  
+  // Checksum
+  const chk = checksum(buf);
+  buf[1] = chk & 0xff;
+  buf[2] = (chk >> 8) & 0xff;
+  
+  return buf;
+}
+
+/**
+ * Configures lighting on keyboard
+ * @param {Object} config - Lighting configuration
+ * @returns {Promise<void>}
+ */
+async function configureLighting(config) {
+  const device = openDeviceByUsage(GMK87_USAGE_CONFIG);
+  try {
+    const frame = buildLightingFrame(config);
+    console.log("Sending lighting configuration...");
+    device.write([...frame]);
+    await delay(100);
+    console.log("Lighting configured successfully!");
+  } finally {
+    device.close();
+  }
+}
+
+/**
+ * Syncs time to keyboard
+ * @param {Date} [date=new Date()] - Date to sync
+ * @returns {Promise<void>}
+ */
+async function syncTime(date = new Date()) {
+  const device = openDeviceByUsage(GMK87_USAGE_CONFIG);
+  try {
+    const buf = Buffer.alloc(64, 0x00);
+    
+    buf[0] = REPORT_ID;
+    buf[3] = 0x06;
+    buf[4] = 0x30;
+    
+    // Time and date
+    buf[43] = toHexNum(date.getSeconds());
+    buf[44] = toHexNum(date.getMinutes());
+    buf[45] = toHexNum(date.getHours());
+    buf[46] = toHexNum(date.getDay());
+    buf[47] = toHexNum(date.getDate());
+    buf[48] = toHexNum(date.getMonth() + 1);
+    buf[49] = toHexNum(date.getFullYear() % 100);
+    
+    // Checksum
+    const chk = checksum(buf);
+    buf[1] = chk & 0xff;
+    buf[2] = (chk >> 8) & 0xff;
+    
+    console.log(`Syncing time: ${date.toLocaleString()}`);
+    device.write([...buf]);
+    await delay(100);
+    console.log("Time synced successfully!");
+  } finally {
+    device.close();
+  }
+}
+
+/**
+ * Gets keyboard information
+ * @returns {Object} Keyboard info
+ */
+function getKeyboardInfo() {
+  const device = openDevice();
+  try {
+    return {
+      manufacturer: device.getManufacturerString?.() || "Unknown",
+      product: device.getProductString?.() || "GMK87",
+      vendorId: VENDOR_ID,
+      productId: PRODUCT_ID,
+    };
+  } finally {
+    device.close();
+  }
+}
+
+// -------------------------------------------------------
 // Exports
 // -------------------------------------------------------
 
@@ -691,10 +865,14 @@ export {
   sendConfigFrame,
   resetDeviceState,
   reviveDevice,
-  // Frame Building & Transmission (NEW)
+  // Frame Building & Transmission
   buildImageFrames,
   sendFrames,
-  // High-Level Pipeline (NEW)
+  // High-Level Pipeline
   initializeDevice,
   uploadImageToDevice,
+  // RGB Lighting (NEW)
+  configureLighting,
+  syncTime,
+  getKeyboardInfo,
 };
