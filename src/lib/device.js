@@ -1,18 +1,40 @@
-// src/lib/device.js
+/**
+ * @fileoverview Low-level device communication library for GMK87 keyboard
+ * Handles HID protocol, device detection, connection management, and command sending
+ */
+
 import HID from "node-hid";
 
+/** @constant {number} USB Vendor ID for GMK87 keyboard */
 const VENDOR_ID = 0x320f;
+
+/** @constant {number} USB Product ID for GMK87 keyboard */
 const PRODUCT_ID = 0x5055;
+
+/** @constant {number} HID Report ID used for all communications */
 const REPORT_ID = 0x04;
 
 // -------------------------------------------------------
 // Common Utilities
 // -------------------------------------------------------
 
+/**
+ * Creates a promise that resolves after a specified delay
+ * @param {number} ms - Milliseconds to delay
+ * @returns {Promise<void>} Promise that resolves after the delay
+ */
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * Converts RGB color values to RGB565 format (16-bit color)
+ * RGB565 uses 5 bits for red, 6 bits for green, and 5 bits for blue
+ * @param {number} r - Red component (0-255)
+ * @param {number} g - Green component (0-255)
+ * @param {number} b - Blue component (0-255)
+ * @returns {number} 16-bit RGB565 color value
+ */
 function toRGB565(r, g, b) {
   const r5 = (r >> 3) & 0x1f;
   const g6 = (g >> 2) & 0x3f;
@@ -20,6 +42,16 @@ function toRGB565(r, g, b) {
   return (r5 << 11) | (g6 << 5) | b5;
 }
 
+/**
+ * Converts a decimal number (0-99) to BCD (Binary-Coded Decimal) format
+ * Used for encoding time/date values in device protocol
+ * @param {number} num - Number to convert (0-99)
+ * @returns {number} BCD-encoded value
+ * @throws {RangeError} If num is outside the range 0-99
+ * @example
+ * toHexNum(42) // returns 0x42 (66 in decimal)
+ * toHexNum(99) // returns 0x99 (153 in decimal)
+ */
 function toHexNum(num) {
   if (num < 0 || num >= 100) throw new RangeError("toHexNum expects 0..99");
   const low = num % 10;
@@ -31,6 +63,10 @@ function toHexNum(num) {
 // Device Detection & Connection
 // -------------------------------------------------------
 
+/**
+ * Searches for GMK87 device in the system's HID device list
+ * @returns {Object|undefined} HID device info object if found, undefined otherwise
+ */
 function findDeviceInfo() {
   const devices = HID.devices();
   return devices.find(
@@ -38,6 +74,12 @@ function findDeviceInfo() {
   );
 }
 
+/**
+ * Opens a connection to the GMK87 device with retry logic
+ * @param {number} [retries=2] - Number of retry attempts if opening fails
+ * @returns {HID.HID} Connected HID device object
+ * @throws {Error} If device not found or fails to open after all retries
+ */
 function openDevice(retries = 2) {
   const info = findDeviceInfo();
   if (!info) {
@@ -65,8 +107,11 @@ function openDevice(retries = 2) {
 }
 
 /**
- * Drain/clear any pending data from device buffer
- * This clears old/stale responses before starting fresh
+ * Drains/clears any pending data from the device buffer
+ * This clears old/stale responses before starting fresh communication
+ * @param {HID.HID} device - Connected HID device
+ * @param {number} [timeoutMs=200] - Maximum time to wait for data to drain
+ * @returns {Promise<string[]>} Array of hex strings representing drained data
  */
 async function drainDevice(device, timeoutMs = 200) {
   return new Promise((resolve) => {
@@ -98,6 +143,12 @@ async function drainDevice(device, timeoutMs = 200) {
 // Low-level Protocol Functions
 // -------------------------------------------------------
 
+/**
+ * Calculates a 16-bit checksum for the device protocol
+ * Sums bytes from position 3 to 63 in the buffer
+ * @param {Buffer} buf - 64-byte buffer to calculate checksum for
+ * @returns {number} 16-bit checksum value
+ */
 function checksum(buf) {
   let sum = 0;
   for (let i = 3; i < 64; i++) {
@@ -106,6 +157,12 @@ function checksum(buf) {
   return sum;
 }
 
+/**
+ * Reads a single response from the device with timeout
+ * @param {HID.HID} device - Connected HID device
+ * @param {number} [timeoutMs=150] - Maximum time to wait for response
+ * @returns {Promise<Buffer|null>} Response buffer or null if timeout
+ */
 async function readResponse(device, timeoutMs = 150) {
   return new Promise((resolve) => {
     let responded = false;
@@ -127,6 +184,15 @@ async function readResponse(device, timeoutMs = 150) {
   });
 }
 
+/**
+ * Sends a command to the device and optionally waits for acknowledgment
+ * @param {HID.HID} device - Connected HID device
+ * @param {number} command - Command byte to send
+ * @param {Buffer|null} [data60=null] - 60-byte data payload (will be zero-filled if null)
+ * @param {boolean} [waitForAck=true] - Whether to wait for and verify acknowledgment
+ * @returns {Promise<boolean>} True if successful, false if ACK missing or mismatched
+ * @throws {Error} If data60 is provided but not exactly 60 bytes
+ */
 async function send(device, command, data60 = null, waitForAck = true) {
   if (data60 === null) {
     data60 = Buffer.alloc(60, 0x00);
@@ -175,6 +241,15 @@ async function send(device, command, data60 = null, waitForAck = true) {
   }
 }
 
+/**
+ * Attempts to send a command with automatic retry logic
+ * @param {HID.HID} device - Connected HID device
+ * @param {number} cmd - Command byte to send
+ * @param {Buffer} [payload] - Optional 60-byte data payload
+ * @param {number} [tries=3] - Number of attempts before giving up
+ * @returns {Promise<boolean>} True if any attempt succeeded, false if all failed
+ * @throws {Error} If the last attempt throws an exception
+ */
 async function trySend(device, cmd, payload = undefined, tries = 3) {
   for (let i = 0; i < tries; i++) {
     try {
@@ -202,6 +277,13 @@ async function trySend(device, cmd, payload = undefined, tries = 3) {
 // Wait-until-ready logic (NEW)
 // -------------------------------------------------------
 
+/**
+ * Waits for the device to report ready status (command 0x23)
+ * Polls the device until a ready response is received or timeout occurs
+ * @param {HID.HID} device - Connected HID device
+ * @param {number} [timeoutMs=1000] - Maximum time to wait for ready signal
+ * @returns {Promise<boolean>} True if device reported ready, false if timeout
+ */
 async function waitForReady(device, timeoutMs = 1000) {
   console.log("Waiting for device to report ready (0x23)...");
   const start = Date.now();
@@ -221,6 +303,15 @@ async function waitForReady(device, timeoutMs = 1000) {
 // Configuration Command
 // -------------------------------------------------------
 
+/**
+ * Sends a configuration frame to the device with display and timing settings
+ * Includes current date/time, frame duration, and image configuration
+ * @param {HID.HID} device - Connected HID device
+ * @param {number} [shownImage=0] - Which image slot to display (0 or 1)
+ * @param {number} [image0NumOfFrames=1] - Number of frames in image slot 0
+ * @param {number} [image1NumOfFrames=1] - Number of frames in image slot 1
+ * @returns {Promise<boolean>} True if command acknowledged successfully
+ */
 async function sendConfigFrame(
   device,
   shownImage = 0,
@@ -263,9 +354,11 @@ async function sendConfigFrame(
 }
 
 /**
- * Fully resets the GMK87's state machine before INIT.
- * Flushes any pending responses, sends a dummy 0x00 and 0x23,
- * waits for quiet for up to 500 ms.
+ * Fully resets the GMK87's state machine before initialization
+ * Flushes any pending responses, sends dummy commands to clear state,
+ * and waits for the device buffer to be quiet
+ * @param {HID.HID} device - Connected HID device
+ * @returns {Promise<void>}
  */
 export async function resetDeviceState(device) {
   console.log("Resetting device state...");
@@ -290,9 +383,12 @@ export async function resetDeviceState(device) {
 }
 
 /**
- * Try to revive a non-responsive HID endpoint without power-cycling.
- * Sends a zero-length packet and reopens the device up to 6 times.
- * After 3 failures, waits longer before doing the remaining 3 attempts.
+ * Attempts to revive a non-responsive HID endpoint without power-cycling
+ * Sends a zero-length packet and reopens the device up to 6 times with
+ * incremental backoff. After 3 failures, adds extended cooldown before
+ * attempting the final 3 tries
+ * @param {HID.HID} device - The potentially unresponsive HID device
+ * @returns {Promise<HID.HID|null>} Revived device object or null if all attempts failed
  */
 export async function reviveDevice(device) {
   console.log("Attempting soft HID revive...");
