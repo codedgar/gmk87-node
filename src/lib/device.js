@@ -1,9 +1,11 @@
 /**
  * @fileoverview Low-level device communication library for GMK87 keyboard
- * Handles HID protocol, device detection, connection management, and command sending
+ * Handles HID protocol, device detection, connection management, command sending,
+ * frame building, and complete upload pipelines
  */
 
 import HID from "node-hid";
+import Jimp from "jimp";
 
 /** @constant {number} USB Vendor ID for GMK87 keyboard */
 const VENDOR_ID = 0x320f;
@@ -13,6 +15,15 @@ const PRODUCT_ID = 0x5055;
 
 /** @constant {number} HID Report ID used for all communications */
 const REPORT_ID = 0x04;
+
+/** @constant {number} Number of data bytes per frame packet */
+const BYTES_PER_FRAME = 0x38;
+
+/** @constant {number} Target display width in pixels */
+const DISPLAY_WIDTH = 240;
+
+/** @constant {number} Target display height in pixels */
+const DISPLAY_HEIGHT = 135;
 
 // -------------------------------------------------------
 // Common Utilities
@@ -274,7 +285,7 @@ async function trySend(device, cmd, payload = undefined, tries = 3) {
 }
 
 // -------------------------------------------------------
-// Wait-until-ready logic (NEW)
+// Wait-until-ready logic
 // -------------------------------------------------------
 
 /**
@@ -360,7 +371,7 @@ async function sendConfigFrame(
  * @param {HID.HID} device - Connected HID device
  * @returns {Promise<void>}
  */
-export async function resetDeviceState(device) {
+async function resetDeviceState(device) {
   console.log("Resetting device state...");
   // Try to wake/clear with 0x00
   await trySend(device, 0x00, undefined, 1);
@@ -390,7 +401,7 @@ export async function resetDeviceState(device) {
  * @param {HID.HID} device - The potentially unresponsive HID device
  * @returns {Promise<HID.HID|null>} Revived device object or null if all attempts failed
  */
-export async function reviveDevice(device) {
+async function reviveDevice(device) {
   console.log("Attempting soft HID revive...");
 
   // Zero-length "kick" to flush endpoint
@@ -450,25 +461,240 @@ export async function reviveDevice(device) {
   return null;
 }
 
+// -------------------------------------------------------
+// Frame Building & Transmission (NEW CONSOLIDATED FUNCTIONS)
+// -------------------------------------------------------
+
+/**
+ * Builds frame data from an image file for transmission to the device
+ * Loads the image, resizes it to 240x135, converts pixels to RGB565 format,
+ * and chunks them into 64-byte frames for the HID protocol
+ * @param {string} imagePath - Path to the image file to load
+ * @param {number} [imageIndex=0] - Target image slot on device (0 or 1)
+ * @returns {Promise<Buffer[]>} Array of 60-byte frame buffers ready for transmission
+ * @throws {Error} If image cannot be loaded or processed
+ */
+async function buildImageFrames(imagePath, imageIndex = 0) {
+  console.log(`Loading image: ${imagePath} for slot ${imageIndex}`);
+  const img = await Jimp.read(imagePath);
+
+  if (img.bitmap.width !== DISPLAY_WIDTH || img.bitmap.height !== DISPLAY_HEIGHT) {
+    console.log(`Resizing image to ${DISPLAY_WIDTH}x${DISPLAY_HEIGHT}...`);
+    img.resize(DISPLAY_WIDTH, DISPLAY_HEIGHT);
+  }
+
+  const frames = [];
+  const command = Buffer.alloc(64, 0);
+  let startOffset = 0x00;
+  let bufIndex = 0x08;
+
+  /**
+   * Internal helper: transmits accumulated pixel data as a frame
+   * @private
+   */
+  function transmit() {
+    if (bufIndex === 0x08) return;
+
+    command[0x04] = BYTES_PER_FRAME;
+    command[0x05] = startOffset & 0xff;
+    command[0x06] = (startOffset >> 8) & 0xff;
+    command[0x07] = imageIndex;
+
+    frames.push(Buffer.from(command.subarray(4, 64)));
+
+    startOffset += BYTES_PER_FRAME;
+    bufIndex = 0x08;
+    command.fill(0, 0x08);
+  }
+
+  // Convert each pixel to RGB565 and pack into frames
+  for (let y = 0; y < DISPLAY_HEIGHT; y++) {
+    for (let x = 0; x < DISPLAY_WIDTH; x++) {
+      const { r, g, b } = Jimp.intToRGBA(img.getPixelColor(x, y));
+      const rgb565 = toRGB565(r, g, b);
+
+      command[bufIndex++] = (rgb565 >> 8) & 0xff;
+      command[bufIndex++] = rgb565 & 0xff;
+
+      if (bufIndex >= 64) {
+        transmit();
+      }
+    }
+  }
+
+  transmit(); // Flush any remaining data
+
+  console.log(`Total frames generated: ${frames.length}`);
+  return frames;
+}
+
+/**
+ * Transmits an array of frames to the device with progress reporting and error handling
+ * Sends frames using command 0x21 with automatic retry and ACK verification
+ * @param {HID.HID} device - Connected HID device
+ * @param {Buffer[]} frames - Array of frame buffers to send
+ * @param {string} [label="frames"] - Label for progress messages
+ * @returns {Promise<{sent: number, failed: number}>} Statistics about transmission success
+ * @throws {Error} If more than 10 frames fail to receive acknowledgment
+ */
+async function sendFrames(device, frames, label = "frames") {
+  console.log(`Sending ${frames.length} ${label}...`);
+  let sent = 0;
+  let failed = 0;
+
+  for (let i = 0; i < frames.length; i++) {
+    const success = await trySend(device, 0x21, frames[i], 3);
+
+    if (success) {
+      sent++;
+    } else {
+      failed++;
+      if (failed > 10) {
+        throw new Error(`Too many failed ACKs (${failed}), aborting upload`);
+      }
+    }
+
+    // Progress reporting every 256 frames
+    if (i % 256 === 0 && i > 0) {
+      console.log(`  Progress: ${i}/${frames.length} (${failed} failed ACKs)`);
+    }
+  }
+
+  console.log(`  Sent ${sent}/${frames.length} ${label} (${failed} failed ACKs)`);
+
+  if (failed > 0) {
+    console.warn(`  ⚠ Warning: ${failed} frames may not have been acknowledged`);
+  }
+
+  return { sent, failed };
+}
+
+// -------------------------------------------------------
+// High-Level Initialization & Upload Pipeline (NEW)
+// -------------------------------------------------------
+
+/**
+ * Performs the complete device initialization sequence
+ * Executes the handshake protocol, sends configuration, and waits for ready signal
+ * Includes automatic device revival if initial handshake fails
+ * @param {HID.HID} device - Connected HID device
+ * @param {number} [shownImage=0] - Which image slot to display after upload (0=none, 1=slot0, 2=slot1)
+ * @returns {Promise<HID.HID>} The device handle (may be a revived instance)
+ * @throws {Error} If initialization fails or device doesn't respond
+ */
+async function initializeDevice(device, shownImage = 0) {
+  console.log("Initializing device with ACK handshake...");
+
+  let success = await trySend(device, 0x01);
+  if (!success) {
+    console.warn("No INIT ACK — trying soft revive...");
+    const revived = await reviveDevice(device);
+    if (!revived) throw new Error("Device could not be revived.");
+    device = revived;
+  }
+  await delay(3);
+
+  success = await trySend(device, 0x01);
+  if (!success) throw new Error("Device not responding to 2nd INIT!");
+  await delay(2);
+
+  success = await sendConfigFrame(device, shownImage, 1, 1);
+  if (!success) throw new Error("Device not responding to CONFIG!");
+  await delay(25);
+
+  success = await trySend(device, 0x02);
+  if (!success) throw new Error("Device not responding to COMMIT!");
+  await delay(18);
+
+  success = await trySend(device, 0x23);
+  if (!success) throw new Error("Device not responding to 0x23 command!");
+
+  await waitForReady(device);
+
+  return device; // Return potentially revived device
+}
+
+/**
+ * Complete pipeline to upload an image to the GMK87 device
+ * Handles device connection, initialization, frame building, transmission, and cleanup
+ * @param {string} imagePath - Path to the image file to upload
+ * @param {number} [imageIndex=0] - Target slot on device (0 or 1)
+ * @param {Object} [options={}] - Upload options
+ * @param {boolean} [options.showAfter=true] - Whether to display the image after upload
+ * @returns {Promise<boolean>} True if upload completed successfully
+ * @throws {Error} If device connection fails or upload encounters errors
+ */
+async function uploadImageToDevice(imagePath, imageIndex = 0, options = {}) {
+  const { showAfter = true } = options;
+  const shownImage = showAfter ? imageIndex + 1 : 0;
+
+  let device = openDevice();
+
+  try {
+    console.log("Clearing device buffer...");
+    const stale = await drainDevice(device);
+    if (stale.length > 0) {
+      console.log(`  Drained ${stale.length} stale messages`);
+    }
+
+    await resetDeviceState(device);
+
+    device = await initializeDevice(device, shownImage);
+
+    console.log(`Building frames for slot ${imageIndex}...`);
+    const frames = await buildImageFrames(imagePath, imageIndex);
+
+    console.log(`Uploading ${frames.length} frames...`);
+    await sendFrames(device, frames, `slot ${imageIndex}`);
+
+    const success = await trySend(device, 0x02);
+    if (!success) {
+      console.warn("Final COMMIT may not have been acknowledged");
+    }
+
+    console.log("✓ Upload complete!");
+    return true;
+  } finally {
+    try {
+      if (device) device.close();
+    } catch {}
+  }
+}
 
 // -------------------------------------------------------
 // Exports
 // -------------------------------------------------------
 
 export {
+  // Constants
   VENDOR_ID,
   PRODUCT_ID,
   REPORT_ID,
+  BYTES_PER_FRAME,
+  DISPLAY_WIDTH,
+  DISPLAY_HEIGHT,
+  // Utilities
   delay,
   toRGB565,
   toHexNum,
+  // Device Connection
   findDeviceInfo,
   openDevice,
   drainDevice,
+  // Protocol Functions
   checksum,
   send,
   trySend,
-  sendConfigFrame,
   readResponse,
-  waitForReady, // new export
+  waitForReady,
+  // Configuration
+  sendConfigFrame,
+  resetDeviceState,
+  reviveDevice,
+  // Frame Building & Transmission (NEW)
+  buildImageFrames,
+  sendFrames,
+  // High-Level Pipeline (NEW)
+  initializeDevice,
+  uploadImageToDevice,
 };

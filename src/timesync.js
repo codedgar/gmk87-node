@@ -1,10 +1,22 @@
-// src/timesync.js
+/**
+ * @fileoverview Time synchronization utility for GMK87 keyboard
+ * Sends the current system time to the device's internal clock
+ * Useful for keeping the keyboard's RTC (Real-Time Clock) synchronized
+ */
+
 import {
   findDeviceInfo,
   openDevice,
   sendConfigFrame,
 } from "./lib/device.js";
 
+/**
+ * Main time synchronization function
+ * Detects the GMK87 device, opens a connection, sends the current time,
+ * and closes the connection
+ * @returns {Promise<void>} Resolves when time sync is complete
+ * @throws {Error} If device is not found or connection fails
+ */
 async function main() {
   const info = findDeviceInfo();
   if (!info) {
@@ -24,12 +36,21 @@ async function main() {
     process.exit(1);
   }
 
-  sendConfigFrame(device);
+  console.log("Sending time synchronization frame...");
+  await sendConfigFrame(device);
+  console.log("✓ Time synchronized successfully");
 
   device.close();
 }
 
-// Check if this is the main module being run directly
+// -------------------------------------------------------
+// Entry Point
+// -------------------------------------------------------
+
+/**
+ * Check if this script is being run directly (not imported as a module)
+ * If so, execute the main function
+ */
 const isMain =
   process.argv[1] && import.meta.url === `file://${process.argv[1]}`;
 
@@ -39,6 +60,10 @@ if (isMain) {
     process.exit(1);
   });
 }
+
+// -------------------------------------------------------
+// Exports
+// -------------------------------------------------------
 
 // Re-export for backward compatibility
 export { sendConfigFrame } from "./lib/device.js";
