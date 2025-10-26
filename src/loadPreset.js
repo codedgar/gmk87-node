@@ -2,6 +2,7 @@
 /**
  * @fileoverview Preset loader for GMK87 keyboard configurations
  * Allows quick loading of predefined lighting configurations
+ * Uses robust pipeline with acknowledgment checking
  */
 
 import fs from "fs";
@@ -47,9 +48,10 @@ function listPresets(presets) {
 
 /**
  * Applies a preset configuration
+ * Uses the robust pipeline with ACK checking and retries
  * @param {string} presetName - Name of preset to apply
  * @param {string} [presetsPath] - Optional custom presets file path
- * @returns {Promise<void>}
+ * @returns {Promise<boolean>} True if preset was successfully applied
  */
 async function applyPreset(presetName, presetsPath) {
   const presets = loadPresets(presetsPath);
@@ -64,7 +66,7 @@ async function applyPreset(presetName, presetsPath) {
   console.log(`\n🎨 Applying preset: ${presetName}`);
   console.log(`   ${preset.description}\n`);
 
-  await configureLighting(preset.config);
+  return await configureLighting(preset.config);
 }
 
 /**
@@ -126,6 +128,9 @@ Examples:
   node loadPreset.js --list
   node loadPreset.js party --file ./my-presets.json
   npm run preset gaming
+
+Note: This utility now uses robust acknowledgment checking and retry logic
+      to ensure preset changes are applied consistently.
     `);
     return;
   }
@@ -144,10 +149,16 @@ Examples:
       process.exit(1);
     }
 
-    await applyPreset(args.preset, args.file);
-    console.log("✅ Preset applied successfully!\n");
+    const success = await applyPreset(args.preset, args.file);
+    
+    if (success) {
+      console.log("\n✅ Preset applied successfully!\n");
+    } else {
+      console.log("\n⚠️  Preset sent but may not have been acknowledged\n");
+      process.exit(1);
+    }
   } catch (error) {
-    console.error(`❌ Error: ${error.message}\n`);
+    console.error(`\n❌ Error: ${error.message}\n`);
     process.exit(1);
   }
 }

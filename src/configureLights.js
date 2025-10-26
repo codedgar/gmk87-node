@@ -1,18 +1,11 @@
+#!/usr/bin/env node
 /**
  * @fileoverview GMK87 Keyboard Lighting Configuration Utility
  * Configures underglow effects, LED brightness, speed, colors, and more
- * Ported from Python GMK87Tool to Node.js
+ * Uses robust pipeline with acknowledgment checking and retry logic
  */
 
-import HID from "node-hid";
-import { 
-  VENDOR_ID as GMK87_VENDOR_ID,
-  PRODUCT_ID as GMK87_PRODUCT_ID,
-  GMK87_USAGE_CONFIG,
-  checksum,
-  toHexNum,
-  delay
-} from "./lib/device.js";
+import { configureLighting } from "./lib/device.js";
 
 /**
  * Available underglow effects
@@ -139,78 +132,10 @@ function validateConfig(config) {
 }
 
 /**
- * Builds the 64-byte configuration frame for the GMK87 keyboard
- * @param {Object} config - Configuration object (merged with defaults)
- * @returns {Buffer} 64-byte configuration data packet
- */
-function buildConfigFrame(config) {
-  const now = new Date();
-  const data = Buffer.alloc(64);
-
-  // Header
-  data[0x00] = 0x04; // Report ID
-  data[0x03] = 0x06; // Config command
-  data[0x04] = 0x30; // Full configuration frame
-
-  // Underglow configuration (0x09-0x10)
-  data[0x09] = config.underglow.effect;
-  data[0x0a] = config.underglow.brightness;
-  data[0x0b] = config.underglow.speed;
-  data[0x0c] = config.underglow.orientation;
-  data[0x0d] = config.underglow.rainbow;
-  data[0x0e] = config.underglow.hue.red;
-  data[0x0f] = config.underglow.hue.green;
-  data[0x10] = config.underglow.hue.blue;
-
-  // Unknown/reserved bytes (0x11-0x1c)
-  for (let i = 0x11; i <= 0x1c; i++) {
-    data[i] = 0x00;
-  }
-
-  // Windows key lock (0x1d)
-  data[0x1d] = config.winlock;
-
-  // Unknown/reserved bytes (0x1e-0x23)
-  for (let i = 0x1e; i <= 0x23; i++) {
-    data[i] = 0x00;
-  }
-
-  // Big LED configuration (0x24-0x28)
-  data[0x24] = config.led.mode;
-  data[0x25] = config.led.saturation;
-  data[0x26] = 0x00; // Unknown
-  data[0x27] = config.led.rainbow;
-  data[0x28] = config.led.color;
-
-  // Image display selection (0x29)
-  data[0x29] = config.showImage;
-
-  // Image frame counts (0x2a, 0x36)
-  data[0x2a] = config.image1Frames;
-  data[0x36] = config.image2Frames;
-
-  // Time and date (0x2b-0x31)
-  data[0x2b] = toHexNum(now.getSeconds());
-  data[0x2c] = toHexNum(now.getMinutes());
-  data[0x2d] = toHexNum(now.getHours());
-  data[0x2e] = toHexNum(now.getDay()); // 0=Sunday
-  data[0x2f] = toHexNum(now.getDate());
-  data[0x30] = toHexNum(now.getMonth() + 1); // Month is 0-indexed
-  data[0x31] = toHexNum(now.getFullYear() % 100);
-
-  // Calculate and set checksum (bytes 0x01-0x02)
-  const checksumData = data.slice(3);
-  const chk = checksum(checksumData);
-  data[0x01] = chk & 0xff; // LSB
-  data[0x02] = (chk >> 8) & 0xff; // MSB
-
-  return data;
-}
-
-/**
  * Sends configuration to the GMK87 keyboard
+ * Uses the robust pipeline from device.js with ACK checking and retries
  * @param {Object} userConfig - User-provided configuration (partial or complete)
- * @returns {Promise<void>}
+ * @returns {Promise<boolean>} True if configuration was successfully applied
  * @throws {Error} If device not found or communication fails
  */
 export async function configureLights(userConfig = {}) {
@@ -237,33 +162,8 @@ export async function configureLights(userConfig = {}) {
   // Validate configuration
   validateConfig(config);
 
-  // Find device with correct usage ID
-  const devices = HID.devices(GMK87_VENDOR_ID, GMK87_PRODUCT_ID);
-  const configDevice = devices.find((d) => d.usage === GMK87_USAGE_CONFIG);
-
-  if (!configDevice) {
-    throw new Error(
-      `GMK87 keyboard not found (config interface, usage=${GMK87_USAGE_CONFIG})`
-    );
-  }
-
-  console.log("Opening GMK87 keyboard for configuration...");
-  const device = new HID.HID(configDevice.path);
-
-  try {
-    const frame = buildConfigFrame(config);
-    console.log("Sending configuration frame...");
-    
-    // Write directly
-    device.write([...frame]);
-    
-    console.log("Configuration sent successfully!");
-    
-    // Give the device time to process
-    await delay(100);
-  } finally {
-    device.close();
-  }
+  // Use the robust pipeline from device.js
+  return await configureLighting(config);
 }
 
 /**
@@ -441,6 +341,9 @@ Examples:
   node configureLights.js --effect rainbow-cycle --brightness 5
   node configureLights.js --effect breathing --red 255 --green 0 --blue 0
   node configureLights.js --led-color blue --led-mode 3
+
+Note: This utility now uses robust acknowledgment checking and retry logic
+      to ensure configuration changes are applied consistently.
     `);
     process.exit(0);
   }
@@ -448,12 +351,17 @@ Examples:
   const config = argsToConfig(args);
 
   configureLights(config)
-    .then(() => {
-      console.log("Done!");
-      process.exit(0);
+    .then((success) => {
+      if (success) {
+        console.log("\n✅ Configuration applied successfully!");
+        process.exit(0);
+      } else {
+        console.log("\n⚠️  Configuration sent but may not have been acknowledged");
+        process.exit(1);
+      }
     })
     .catch((err) => {
-      console.error("Error:", err.message);
+      console.error("\n❌ Error:", err.message);
       process.exit(1);
     });
 }
