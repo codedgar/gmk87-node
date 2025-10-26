@@ -290,7 +290,7 @@ async function trySend(device, cmd, payload = undefined, tries = 3) {
 
 /**
  * Waits for the device to report ready status (command 0x23)
- * Polls the device until a ready response is received or timeout occurs
+ * PASSIVELY LISTENS for device to send 0x23 response (not active pinging)
  * @param {HID.HID} device - Connected HID device
  * @param {number} [timeoutMs=1000] - Maximum time to wait for ready signal
  * @returns {Promise<boolean>} True if device reported ready, false if timeout
@@ -337,17 +337,7 @@ async function sendConfigFrame(
 
   const command = Buffer.alloc(64, 0x00);
 
-  command[0x04] = 0x30;
-  command[0x09] = 0x08;
-  command[0x0a] = 0x08;
-  command[0x0b] = 0x01;
-  command[0x0e] = 0x18;
-  command[0x0f] = 0xff;
-  command[0x11] = 0x0d;
-  command[0x1c] = 0xff;
-  command[0x25] = 0x09;
-  command[0x26] = 0x02;
-  command[0x28] = 0x01;
+  command[0x04] = 0x29; // 0x29 = display/time only, 0x30 = full config including RGB
   command[0x29] = shownImage;
   command[0x2a] = image0NumOfFrames;
   command[0x2b] = toHexNum(now.getSeconds());
@@ -364,6 +354,10 @@ async function sendConfigFrame(
   return await send(device, 0x06, command.subarray(4));
 }
 
+// -------------------------------------------------------
+// Step 1: Reset Device State
+// -------------------------------------------------------
+
 /**
  * Fully resets the GMK87's state machine before initialization
  * Flushes any pending responses, sends dummy commands to clear state,
@@ -373,6 +367,7 @@ async function sendConfigFrame(
  */
 async function resetDeviceState(device) {
   console.log("Resetting device state...");
+  
   // Try to wake/clear with 0x00
   await trySend(device, 0x00, undefined, 1);
   await delay(50);
@@ -392,6 +387,10 @@ async function resetDeviceState(device) {
   await delay(200);
   console.log("Device state reset complete.");
 }
+
+// -------------------------------------------------------
+// Step 2: Revive Device (if needed)
+// -------------------------------------------------------
 
 /**
  * Attempts to revive a non-responsive HID endpoint without power-cycling
@@ -462,7 +461,7 @@ async function reviveDevice(device) {
 }
 
 // -------------------------------------------------------
-// Frame Building & Transmission (NEW CONSOLIDATED FUNCTIONS)
+// Frame Building & Transmission
 // -------------------------------------------------------
 
 /**
@@ -570,7 +569,7 @@ async function sendFrames(device, frames, label = "frames") {
 }
 
 // -------------------------------------------------------
-// High-Level Initialization & Upload Pipeline (NEW)
+// Step 3: Initialize Device
 // -------------------------------------------------------
 
 /**
@@ -614,6 +613,10 @@ async function initializeDevice(device, shownImage = 0) {
   return device; // Return potentially revived device
 }
 
+// -------------------------------------------------------
+// High-Level Image Upload Pipeline
+// -------------------------------------------------------
+
 /**
  * Complete pipeline to upload an image to the GMK87 device
  * Handles device connection, initialization, frame building, transmission, and cleanup
@@ -631,16 +634,28 @@ async function uploadImageToDevice(imagePath, imageIndex = 0, options = {}) {
   let device = openDevice();
 
   try {
+    // -------------------------------------------------------
+    // Step 1: Drain device buffer
+    // -------------------------------------------------------
     console.log("Clearing device buffer...");
     const stale = await drainDevice(device);
     if (stale.length > 0) {
       console.log(`  Drained ${stale.length} stale messages`);
     }
 
+    // -------------------------------------------------------
+    // Step 2: Reset device state
+    // -------------------------------------------------------
     await resetDeviceState(device);
 
+    // -------------------------------------------------------
+    // Step 3: Initialize device (includes revive if needed)
+    // -------------------------------------------------------
     device = await initializeDevice(device, shownImage);
 
+    // -------------------------------------------------------
+    // Step 4: Build and send image frames
+    // -------------------------------------------------------
     console.log(`Building frames for slot ${imageIndex}...`);
     const frames = await buildImageFrames(imagePath, imageIndex);
 
@@ -658,6 +673,260 @@ async function uploadImageToDevice(imagePath, imageIndex = 0, options = {}) {
     try {
       if (device) device.close();
     } catch {}
+  }
+}
+
+// -------------------------------------------------------
+// Lighting Configuration Functions
+// -------------------------------------------------------
+
+/**
+ * Builds a lighting configuration frame
+ * Creates a 64-byte configuration packet with RGB settings, LED modes, and time sync
+ * @param {Object} config - Lighting configuration object
+ * @param {Object} [config.underglow] - Underglow RGB configuration
+ * @param {number} [config.underglow.effect] - Effect mode (0-18)
+ * @param {number} [config.underglow.brightness] - Brightness (0-9)
+ * @param {number} [config.underglow.speed] - Animation speed (0-9)
+ * @param {number} [config.underglow.orientation] - Direction (0=L-R, 1=R-L)
+ * @param {number} [config.underglow.rainbow] - Rainbow mode (0=off, 1=on)
+ * @param {Object} [config.underglow.hue] - RGB color values
+ * @param {Object} [config.led] - Big LED configuration
+ * @param {number} [config.led.mode] - LED mode (0-4)
+ * @param {number} [config.led.saturation] - Saturation (0-9)
+ * @param {number} [config.led.rainbow] - Rainbow mode (0=off, 1=on)
+ * @param {number} [config.led.color] - Color preset (0-8)
+ * @param {number} [config.winlock] - Windows key lock (0=off, 1=on)
+ * @param {number} [config.showImage] - Display mode (0=time, 1=image1, 2=image2)
+ * @param {number} [config.image1Frames] - Frame count for image 1
+ * @param {number} [config.image2Frames] - Frame count for image 2
+ * @returns {Buffer} 64-byte configuration frame
+ */
+function buildLightingFrame(config) {
+  const now = new Date();
+  const buf = Buffer.alloc(64, 0x00);
+
+  // Header
+  buf[0] = REPORT_ID; // 0x04
+  buf[3] = 0x06; // Config command
+  buf[4] = 0x30; // Full configuration frame (0x30 includes RGB, 0x29 is display/time only)
+
+  // Underglow configuration (bytes 0x09-0x10 = 9-16)
+  if (config.underglow) {
+    const ug = config.underglow;
+    if (ug.effect !== undefined) buf[9] = ug.effect;
+    if (ug.brightness !== undefined) buf[10] = ug.brightness;
+    if (ug.speed !== undefined) buf[11] = ug.speed;
+    if (ug.orientation !== undefined) buf[12] = ug.orientation;
+    if (ug.rainbow !== undefined) buf[13] = ug.rainbow;
+    if (ug.hue) {
+      if (ug.hue.red !== undefined) buf[14] = ug.hue.red;
+      if (ug.hue.green !== undefined) buf[15] = ug.hue.green;
+      if (ug.hue.blue !== undefined) buf[16] = ug.hue.blue;
+    }
+  }
+
+  // Unknown/reserved bytes (0x11-0x1c = 17-28)
+  // These remain 0x00
+
+  // Windows key lock (0x1d = 29)
+  if (config.winlock !== undefined) {
+    buf[29] = config.winlock;
+  }
+
+  // Unknown/reserved bytes (0x1e-0x23 = 30-35)
+  // These remain 0x00
+
+  // Big LED configuration (0x24-0x28 = 36-40)
+  if (config.led) {
+    const led = config.led;
+    if (led.mode !== undefined) buf[36] = led.mode;
+    if (led.saturation !== undefined) buf[37] = led.saturation;
+    // buf[38] = 0x00; // Unknown
+    if (led.rainbow !== undefined) buf[39] = led.rainbow;
+    if (led.color !== undefined) buf[40] = led.color;
+  }
+
+  // Image display selection (0x29 = 41)
+  if (config.showImage !== undefined) {
+    buf[41] = config.showImage;
+  }
+
+  // Image frame counts (0x2a = 42, 0x36 = 54)
+  if (config.image1Frames !== undefined) {
+    buf[42] = config.image1Frames;
+  }
+  if (config.image2Frames !== undefined) {
+    buf[54] = config.image2Frames;
+  }
+
+  // Time and date (0x2b-0x31 = 43-49)
+  buf[43] = toHexNum(now.getSeconds());
+  buf[44] = toHexNum(now.getMinutes());
+  buf[45] = toHexNum(now.getHours());
+  buf[46] = toHexNum(now.getDay()); // 0=Sunday
+  buf[47] = toHexNum(now.getDate());
+  buf[48] = toHexNum(now.getMonth() + 1); // Month is 0-indexed
+  buf[49] = toHexNum(now.getFullYear() % 100);
+
+  // Calculate and set checksum (bytes 0x01-0x02 = 1-2)
+  const chk = checksum(buf);
+  buf[1] = chk & 0xff; // LSB
+  buf[2] = (chk >> 8) & 0xff; // MSB
+
+  return buf;
+}
+
+/**
+ * Sends a lighting configuration frame with acknowledgment checking
+ * @param {HID.HID} device - Connected HID device
+ * @param {Buffer} frameData - Complete 64-byte lighting frame
+ * @param {boolean} [waitForAck=true] - Whether to wait for acknowledgment
+ * @returns {Promise<boolean>} True if acknowledged, false otherwise
+ */
+async function sendLightingFrame(device, frameData, waitForAck = true) {
+  if (!Buffer.isBuffer(frameData) || frameData.length !== 64) {
+    throw new Error("Lighting frame must be exactly 64 bytes");
+  }
+
+  device.write([...frameData]);
+
+  if (!waitForAck) {
+    return true;
+  }
+
+  const response = await readResponse(device, 150);
+
+  if (!response) {
+    console.warn("  ⚠ No ACK for lighting config frame");
+    return false;
+  }
+
+  // For lighting config frames, we check first 8 bytes as acknowledgment
+  const expectedAck = frameData.slice(0, 8);
+  const receivedAck = response.slice(0, 8);
+
+  if (expectedAck.equals(receivedAck)) {
+    return true;
+  } else {
+    console.warn("  ✗ ACK mismatch for lighting config frame");
+    console.warn(`    Expected: ${expectedAck.toString("hex")}`);
+    console.warn(`    Received: ${receivedAck.toString("hex")}`);
+    return false;
+  }
+}
+
+/**
+ * Attempts to send a lighting config frame with automatic retry logic
+ * @param {HID.HID} device - Connected HID device
+ * @param {Buffer} frameData - Complete 64-byte frame to send
+ * @param {number} [tries=3] - Number of attempts before giving up
+ * @returns {Promise<boolean>} True if any attempt succeeded, false if all failed
+ */
+async function trySendLightingFrame(device, frameData, tries = 3) {
+  for (let i = 0; i < tries; i++) {
+    try {
+      const success = await sendLightingFrame(device, frameData, true);
+      if (success) return true;
+
+      if (i < tries - 1) await delay(10);
+    } catch (e) {
+      if (i === tries - 1) throw e;
+      await delay(10);
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Complete pipeline to configure lighting on the GMK87 device
+ * Handles device connection, buffer draining, device reset, revival if needed,
+ * and sends lighting configuration with acknowledgment checking and retries
+ * @param {Object} config - Lighting configuration object (see buildLightingFrame for structure)
+ * @returns {Promise<boolean>} True if configuration was successfully applied
+ * @throws {Error} If device connection fails or configuration cannot be applied
+ */
+async function configureLighting(config) {
+  let device = openDevice();
+
+  try {
+    // -------------------------------------------------------
+    // Step 1: Drain device buffer
+    // -------------------------------------------------------
+    console.log("Clearing device buffer...");
+    const stale = await drainDevice(device);
+    if (stale.length > 0) {
+      console.log(`  Drained ${stale.length} stale messages`);
+    }
+
+    // -------------------------------------------------------
+    // Step 2: Reset device state
+    // -------------------------------------------------------
+    await resetDeviceState(device);
+
+    // -------------------------------------------------------
+    // Step 3: Check device responsiveness (revive if needed)
+    // -------------------------------------------------------
+    let success = await trySend(device, 0x01, undefined, 1);
+    if (!success) {
+      console.log("Device not responding, attempting revival...");
+      const revived = await reviveDevice(device);
+      if (!revived) {
+        throw new Error("Device could not be revived.");
+      }
+      device = revived;
+    }
+
+    // -------------------------------------------------------
+    // Step 4: Build and send lighting configuration frame with ACK checking and retries
+    // -------------------------------------------------------
+    console.log("Building lighting configuration frame...");
+    const frame = buildLightingFrame(config);
+
+    console.log("Sending lighting configuration with acknowledgment checking...");
+    success = await trySendLightingFrame(device, frame, 3);
+
+    if (!success) {
+      console.warn("⚠ Lighting configuration may not have been acknowledged by device");
+      return false;
+    }
+
+    console.log("✓ Lighting configuration applied successfully!");
+    await delay(100);
+    return true;
+  } finally {
+    try {
+      if (device) device.close();
+    } catch {}
+  }
+}
+
+/**
+ * Syncs time to the keyboard
+ * @param {Date} [date=new Date()] - Date object to sync
+ * @returns {Promise<boolean>} True if time sync was successful
+ */
+async function syncTime(date = new Date()) {
+  // Use configureLighting with minimal config (only time fields will be set)
+  return await configureLighting({});
+}
+
+/**
+ * Gets keyboard device information
+ * @returns {Object} Device information object
+ */
+function getKeyboardInfo() {
+  const device = openDevice();
+  try {
+    return {
+      manufacturer: device.getManufacturerString?.() || "Unknown",
+      product: device.getProductString?.() || "GMK87",
+      vendorId: VENDOR_ID,
+      productId: PRODUCT_ID,
+    };
+  } finally {
+    device.close();
   }
 }
 
@@ -687,14 +956,20 @@ export {
   trySend,
   readResponse,
   waitForReady,
-  // Configuration
   sendConfigFrame,
+  // Device State Management
   resetDeviceState,
   reviveDevice,
-  // Frame Building & Transmission (NEW)
+  // Frame Building & Transmission
   buildImageFrames,
   sendFrames,
-  // High-Level Pipeline (NEW)
+  // High-Level Pipelines
   initializeDevice,
   uploadImageToDevice,
+  buildLightingFrame,
+  sendLightingFrame,
+  trySendLightingFrame,
+  configureLighting,
+  syncTime,
+  getKeyboardInfo,
 };
