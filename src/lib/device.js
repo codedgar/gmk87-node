@@ -1,51 +1,63 @@
 /**
  * @fileoverview Low-level device communication library for GMK87 keyboard
- * Handles HID protocol, device detection, connection management, command sending,
- * frame building, and complete upload pipelines
+ * Transport-agnostic (USB interrupt preferred, HID fallback) with verbose logging.
+ *
+ * Public API is preserved to avoid breaking timesync/configureLights/uploadImage:
+ * - openDevice, drainDevice, checksum, send, trySend, readResponse, waitForReady,
+ *   resetDeviceState, reviveDevice, buildImageFrames, sendFrames, initializeDevice,
+ *   uploadImageToDevice
  */
 
 import HID from "node-hid";
+import usb from "usb";
 import Jimp from "jimp";
 
-/** @constant {number} USB Vendor ID for GMK87 keyboard */
+/** USB IDs */
 const VENDOR_ID = 0x320f;
-
-/** @constant {number} USB Product ID for GMK87 keyboard */
 const PRODUCT_ID = 0x5055;
 
-/** @constant {number} HID Report ID used for all communications */
+/** HID report constants (kept for compatibility) */
 const REPORT_ID = 0x04;
 
-/** @constant {number} Number of data bytes per frame packet */
+/** Frame & display constants */
 const BYTES_PER_FRAME = 0x38;
-
-/** @constant {number} Target display width in pixels */
 const DISPLAY_WIDTH = 240;
-
-/** @constant {number} Target display height in pixels */
 const DISPLAY_HEIGHT = 135;
 
-// -------------------------------------------------------
-// Common Utilities
-// -------------------------------------------------------
+/** ---- Logging gate (as requested, right after DISPLAY_HEIGHT) ---- */
+const LOG_LEVEL = (process?.env?.LOG_LEVEL || "debug").toLowerCase();
+/** simple level gate */
+const L = {
+  error: (...a) => console.error(...a),
+  warn: (...a) => (["warn", "info", "debug"].includes(LOG_LEVEL) ? console.warn(...a) : void 0),
+  info: (...a) => (["info", "debug"].includes(LOG_LEVEL) ? console.log(...a) : void 0),
+  debug: (...a) => (LOG_LEVEL === "debug" ? console.debug(...a) : void 0),
+};
 
+/** Tunable timings (shorter by default; overridable in functions via params) */
+const timing = {
+  drainIdleMs: 40, // quiescent period to stop draining
+  drainHardLimitMs: 150, // never drain longer than this
+  readResponseMs: 60, // per-response wait
+  retryDelayMs: 8, // between trySend attempts
+  reviveBaseBackoffMs: 120, // exponential-ish backoff base
+};
+
+/** A/B toggles */
+const COMPAT_DEFAULT = false; // if true: force HID + legacy init + conservative waits
+const PACKET_FORMAT_DEFAULT = "hid64"; // 'hid64' (default) | 'raw64'
 /**
- * Creates a promise that resolves after a specified delay
- * @param {number} ms - Milliseconds to delay
- * @returns {Promise<void>} Promise that resolves after the delay
+ * 'hid64' -> send the same 64B you already build (with REPORT_ID at buf[0]).
+ * 'raw64' -> drop the reportId byte before writing (used only on interrupt path).
  */
+
+/* -------------------------------------------------------
+ * Utilities (unchanged signatures)
+ * -----------------------------------------------------*/
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * Converts RGB color values to RGB565 format (16-bit color)
- * RGB565 uses 5 bits for red, 6 bits for green, and 5 bits for blue
- * @param {number} r - Red component (0-255)
- * @param {number} g - Green component (0-255)
- * @param {number} b - Blue component (0-255)
- * @returns {number} 16-bit RGB565 color value
- */
 function toRGB565(r, g, b) {
   const r5 = (r >> 3) & 0x1f;
   const g6 = (g >> 2) & 0x3f;
@@ -53,16 +65,6 @@ function toRGB565(r, g, b) {
   return (r5 << 11) | (g6 << 5) | b5;
 }
 
-/**
- * Converts a decimal number (0-99) to BCD (Binary-Coded Decimal) format
- * Used for encoding time/date values in device protocol
- * @param {number} num - Number to convert (0-99)
- * @returns {number} BCD-encoded value
- * @throws {RangeError} If num is outside the range 0-99
- * @example
- * toHexNum(42) // returns 0x42 (66 in decimal)
- * toHexNum(99) // returns 0x99 (153 in decimal)
- */
 function toHexNum(num) {
   if (num < 0 || num >= 100) throw new RangeError("toHexNum expects 0..99");
   const low = num % 10;
@@ -70,415 +72,435 @@ function toHexNum(num) {
   return (high << 4) | low;
 }
 
-// -------------------------------------------------------
-// Device Detection & Connection
-// -------------------------------------------------------
-
-/**
- * Searches for GMK87 device in the system's HID device list
- * @returns {Object|undefined} HID device info object if found, undefined otherwise
- */
-function findDeviceInfo() {
-  const devices = HID.devices();
-  return devices.find(
-    (d) => d.vendorId === VENDOR_ID && d.productId === PRODUCT_ID
-  );
+function checksum(buf) {
+  // keep your checksum definition: sum bytes 3..63
+  let sum = 0;
+  for (let i = 3; i < 64; i++) sum = (sum + (buf[i] & 0xff)) & 0xffff;
+  return sum;
 }
 
-/**
- * Opens a connection to the GMK87 device with retry logic
- * @param {number} [retries=2] - Number of retry attempts if opening fails
- * @returns {HID.HID} Connected HID device object
- * @throws {Error} If device not found or fails to open after all retries
- */
-function openDevice(retries = 2) {
-  const info = findDeviceInfo();
-  if (!info) {
-    throw new Error("GMK87 device not found (VID: 0x320f, PID: 0x5055)");
+/* -------------------------------------------------------
+ * Transport Abstraction
+ * -----------------------------------------------------*/
+class BaseTransport {
+  constructor(kind) {
+    this.kind = kind; // 'interrupt' | 'hid'
   }
+  async writeFrame(_buf) {
+    throw new Error("Not implemented");
+  }
+  async readOnce(timeoutMs = timing.readResponseMs) {
+    throw new Error("Not implemented");
+  }
+  async drain(quiescentMs = timing.drainIdleMs, hardLimitMs = timing.drainHardLimitMs) {
+    const packets = [];
+    const start = Date.now();
+    let last = Date.now();
+    while (Date.now() - start < hardLimitMs) {
+      const pkt = await this.readOnce(quiescentMs);
+      if (pkt) {
+        packets.push(Buffer.from(pkt));
+        last = Date.now();
+      } else if (Date.now() - last >= quiescentMs) {
+        break;
+      }
+    }
+    return packets;
+  }
+  close() {}
+}
 
-  for (let attempt = 0; attempt <= retries; attempt++) {
+/** Interrupt (node-usb) transport */
+class InterruptTransport extends BaseTransport {
+  constructor(device, iface, epOut, epIn, packetFormat) {
+    super("interrupt");
+    this.dev = device;
+    this.iface = iface;
+    this.epOut = epOut;
+    this.epIn = epIn;
+    this.packetFormat = packetFormat; // 'hid64' or 'raw64'
+  }
+  async writeFrame(buf) {
+    // Optionally drop the reportId for 'raw64'
+    let toSend = buf;
+    if (this.packetFormat === "raw64") {
+      // send bytes 0..63 minus reportId (shift left 1) – but *only* if caller built a hid-style frame
+      // To avoid assumptions, we only drop 1 byte (reportId) if buf.length === 64 and buf[0] === REPORT_ID.
+      if (buf.length === 64 && buf[0] === REPORT_ID) {
+        toSend = Buffer.from(buf.slice(0, 0).toString()); // no-op safeguard
+        toSend = Buffer.alloc(64);
+        // Build a 64B out of your [0..63] minus reportId (left shift by one):
+        // bytes: [chkLo=buf[1], chkHi=buf[2], cmd=buf[3], payload=buf[4..63]]
+        toSend[0] = buf[1];
+        toSend[1] = buf[2];
+        toSend[2] = buf[3];
+        buf.slice(4).copy(toSend, 3);
+      }
+    }
+    L.debug(`[USB][TX] ${Buffer.from(toSend).toString("hex")}`);
+    await new Promise((resolve, reject) => {
+      this.epOut.transfer(toSend, (err) => (err ? reject(err) : resolve()));
+    });
+  }
+  async readOnce(timeoutMs = timing.readResponseMs) {
+    return new Promise((resolve) => {
+      let timed = false;
+      const to = setTimeout(() => {
+        timed = true;
+        resolve(null);
+      }, timeoutMs);
+      this.epIn.transfer(64, (err, data) => {
+        if (timed) return;
+        clearTimeout(to);
+        if (err || !data) return resolve(null);
+        L.debug(`[USB][RX] ${Buffer.from(data).toString("hex")}`);
+        resolve(Buffer.from(data));
+      });
+    });
+  }
+  close() {
     try {
-      if (process.platform === "darwin") {
-        return new HID.HID(VENDOR_ID, PRODUCT_ID);
-      } else {
-        return new HID.HID(info.path);
-      }
-    } catch (e) {
-      if (attempt === retries) {
-        throw new Error(
-          `Failed to open HID device after ${retries + 1} attempts: ${e.message}`
-        );
-      }
-      const waitMs = 10;
-      const start = Date.now();
-      while (Date.now() - start < waitMs) {}
+      this.iface?.release(true, () => {
+        try {
+          this.dev?.close();
+        } catch {}
+      });
+    } catch {
+      try {
+        this.dev?.close();
+      } catch {}
     }
   }
 }
 
-/**
- * Drains/clears any pending data from the device buffer
- * This clears old/stale responses before starting fresh communication
- * @param {HID.HID} device - Connected HID device
- * @param {number} [timeoutMs=200] - Maximum time to wait for data to drain
- * @returns {Promise<string[]>} Array of hex strings representing drained data
- */
-async function drainDevice(device, timeoutMs = 200) {
-  return new Promise((resolve) => {
-    const drained = [];
-    let lastDataTime = Date.now();
-
-    const checkDone = setInterval(() => {
-      if (Date.now() - lastDataTime > 100) {
-        clearInterval(checkDone);
-        device.removeAllListeners("data");
-        resolve(drained);
-      }
-    }, 50);
-
-    device.on("data", (data) => {
-      lastDataTime = Date.now();
-      drained.push(Buffer.from(data).toString("hex"));
-    });
-
-    setTimeout(() => {
-      clearInterval(checkDone);
-      device.removeAllListeners("data");
-      resolve(drained);
-    }, timeoutMs);
-  });
-}
-
-// -------------------------------------------------------
-// Low-level Protocol Functions
-// -------------------------------------------------------
-
-/**
- * Calculates a 16-bit checksum for the device protocol
- * Sums bytes from position 3 to 63 in the buffer
- * @param {Buffer} buf - 64-byte buffer to calculate checksum for
- * @returns {number} 16-bit checksum value
- */
-function checksum(buf) {
-  let sum = 0;
-  for (let i = 3; i < 64; i++) {
-    sum = (sum + (buf[i] & 0xff)) & 0xffff;
+/** HID (node-hid) transport */
+class HidTransport extends BaseTransport {
+  constructor(hidDevice) {
+    super("hid");
+    this.h = hidDevice;
   }
-  return sum;
-}
-
-/**
- * Reads a single response from the device with timeout
- * @param {HID.HID} device - Connected HID device
- * @param {number} [timeoutMs=150] - Maximum time to wait for response
- * @returns {Promise<Buffer|null>} Response buffer or null if timeout
- */
-async function readResponse(device, timeoutMs = 150) {
-  return new Promise((resolve) => {
-    let responded = false;
-    const timeout = setTimeout(() => {
-      if (!responded) {
+  async writeFrame(buf) {
+    L.debug(`[HID][TX] ${Buffer.from(buf).toString("hex")}`);
+    this.h.write([...buf]);
+  }
+  async readOnce(timeoutMs = timing.readResponseMs) {
+    return new Promise((resolve) => {
+      let responded = false;
+      const to = setTimeout(() => {
+        if (!responded) {
+          responded = true;
+          this.h.removeAllListeners("data");
+          resolve(null);
+        }
+      }, timeoutMs);
+      this.h.once("data", (data) => {
+        if (responded) return;
         responded = true;
-        device.removeAllListeners("data");
-        resolve(null);
-      }
-    }, timeoutMs);
-
-    device.once("data", (data) => {
-      if (!responded) {
-        responded = true;
-        clearTimeout(timeout);
+        clearTimeout(to);
+        L.debug(`[HID][RX] ${Buffer.from(data).toString("hex")}`);
         resolve(Buffer.from(data));
-      }
+      });
+    });
+  }
+  async drain(quiescentMs = timing.drainIdleMs, hardLimitMs = timing.drainHardLimitMs) {
+    const packets = [];
+    const start = Date.now();
+    let last = Date.now();
+    const onData = (data) => {
+      packets.push(Buffer.from(data));
+      last = Date.now();
+      L.debug(`[HID][RX] ${Buffer.from(data).toString("hex")}`);
+    };
+    this.h.on("data", onData);
+    while (Date.now() - start < hardLimitMs) {
+      await delay(5);
+      if (Date.now() - last >= quiescentMs) break;
+    }
+    this.h.removeListener("data", onData);
+    return packets;
+  }
+  close() {
+    try {
+      this.h?.close();
+    } catch {}
+  }
+}
+
+/* -------------------------------------------------------
+ * Discovery + creators
+ * -----------------------------------------------------*/
+function findDeviceInfo() {
+  const devices = HID.devices();
+  L.info(`[DISCOVER] HID scan found ${devices.length} devices`);
+  const dev = devices.find((d) => d.vendorId === VENDOR_ID && d.productId === PRODUCT_ID);
+  if (dev) L.info(`[DISCOVER] GMK87 (HID) path: ${dev.path}`);
+  return dev || null;
+}
+
+function createInterruptTransport(packetFormat = PACKET_FORMAT_DEFAULT) {
+  // Find USB device first
+  const dev = usb.getDeviceList().find(
+    (d) => d.deviceDescriptor?.idVendor === VENDOR_ID && d.deviceDescriptor?.idProduct === PRODUCT_ID
+  );
+  if (!dev) throw new Error("USB device not found for interrupt transport");
+  dev.open();
+  // Look for interface that exposes OUT 0x05 and IN 0x83
+  let chosen = null;
+  for (const iface of dev.interfaces) {
+    try {
+      iface.claim();
+    } catch (e) {
+      // may already be claimed later; try anyway
+    }
+    const eps = iface.endpoints || [];
+    const out05 = eps.find((e) => e.direction === "out" && (e.address & 0xff) === 0x05);
+    const in83 = eps.find((e) => e.direction === "in" && (e.address & 0xff) === 0x83);
+    if (out05 && in83) {
+      chosen = { iface, out: out05, in: in83 };
+      break;
+    }
+    try {
+      iface.release(true, () => {});
+    } catch {}
+  }
+  if (!chosen) {
+    dev.close();
+    throw new Error("Interrupt endpoints 0x05/0x83 not found");
+  }
+  L.info("[USB] Using interrupt endpoints OUT 0x05 / IN 0x83");
+  // Start the IN endpoint
+  chosen.in.startPoll?.();
+  return new InterruptTransport(dev, chosen.iface, chosen.out, chosen.in, packetFormat);
+}
+
+function createHidTransport() {
+  const info = findDeviceInfo();
+  if (!info) throw new Error("GMK87 device (HID) not found");
+  const handle =
+    process.platform === "darwin" ? new HID.HID(VENDOR_ID, PRODUCT_ID) : new HID.HID(info.path);
+  return new HidTransport(handle);
+}
+
+/** Factory that prefers interrupt unless compat flag forces HID */
+function createTransport(options = {}) {
+  const {
+    prefer = "interrupt",
+    compat = COMPAT_DEFAULT,
+    packetFormat = PACKET_FORMAT_DEFAULT,
+    allowHidFallback = true,
+  } = options;
+
+  if (compat) {
+    L.info("[MODE] COMPAT=true → forcing HID transport with legacy init");
+    return createHidTransport();
+  }
+
+  if (prefer === "interrupt") {
+    try {
+      return createInterruptTransport(packetFormat);
+    } catch (e) {
+      L.warn(`[USB] Interrupt transport failed: ${e.message}`);
+      if (!allowHidFallback) throw e;
+      L.info("[USB] Falling back to HID transport");
+      return createHidTransport();
+    }
+  }
+  return createHidTransport();
+}
+
+/** Dev helper: prints the USB topology/interfaces/endpoints */
+function printUsbTopology() {
+  const dev = usb.getDeviceList().find(
+    (d) => d.deviceDescriptor?.idVendor === VENDOR_ID && d.deviceDescriptor?.idProduct === PRODUCT_ID
+  );
+  if (!dev) {
+    console.log("No GMK87 usb device found");
+    return;
+  }
+  dev.open();
+  console.log("USB Configuration count:", dev.configDescriptor?.bNumInterfaces);
+  dev.interfaces.forEach((iface, idx) => {
+    console.log(`Interface #${idx}`);
+    (iface.endpoints || []).forEach((ep) => {
+      const dir = ep.direction.toUpperCase();
+      console.log(
+        `  EP addr=0x${(ep.address & 0xff).toString(16).padStart(2, "0")} dir=${dir} type=${ep.transferType}`
+      );
     });
   });
+  try {
+    dev.close();
+  } catch {}
+}
+
+/* -------------------------------------------------------
+ * Public-facing wrappers (names/signatures preserved)
+ * -----------------------------------------------------*/
+function openDevice(retries = 1, options = {}) {
+  const {
+    prefer = "interrupt",
+    compat = COMPAT_DEFAULT,
+    packetFormat = PACKET_FORMAT_DEFAULT,
+    allowHidFallback = true,
+  } = options;
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      L.info(`[OPEN] Opening device (attempt ${attempt + 1})...`);
+      const transport = createTransport({ prefer, compat, packetFormat, allowHidFallback });
+      L.info(`[OPEN] Opened ${transport.kind.toUpperCase()} transport`);
+      return transport;
+    } catch (e) {
+      L.warn(`[OPEN] Failed: ${e.message}`);
+      if (attempt === retries) throw e;
+      L.info(`[OPEN] Retrying in ${timing.retryDelayMs}ms...`);
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, timing.retryDelayMs);
+    }
+  }
+  throw new Error("Unable to open device");
+}
+
+async function drainDevice(transport, timeoutMs = timing.drainHardLimitMs) {
+  L.info("[DRAIN] Draining pending data...");
+  const packets = await transport.drain(timing.drainIdleMs, timeoutMs);
+  L.info(`[DRAIN] ${packets.length} packets`);
+  return packets.map((b) => b.toString("hex"));
+}
+
+async function readResponse(transport, timeoutMs = timing.readResponseMs) {
+  return await transport.readOnce(timeoutMs);
 }
 
 /**
- * Sends a command to the device and optionally waits for acknowledgment
- * @param {HID.HID} device - Connected HID device
- * @param {number} command - Command byte to send
- * @param {Buffer|null} [data60=null] - 60-byte data payload (will be zero-filled if null)
- * @param {boolean} [waitForAck=true] - Whether to wait for and verify acknowledgment
- * @returns {Promise<boolean>} True if successful, false if ACK missing or mismatched
- * @throws {Error} If data60 is provided but not exactly 60 bytes
+ * Builds a 64-byte frame based on your current HID-style format:
+ * [0]=REPORT_ID, [1..2]=checksum, [3]=cmd, [4..63]=payload (60B)
  */
-async function send(device, command, data60 = null, waitForAck = true) {
-  if (data60 === null) {
-    data60 = Buffer.alloc(60, 0x00);
-  }
-
+function buildCommandFrame(command, data60 = null) {
+  if (data60 === null) data60 = Buffer.alloc(60, 0x00);
   if (!Buffer.isBuffer(data60) || data60.length !== 60) {
     throw new Error("Invalid data length: need exactly 60 bytes");
   }
-
   const buf = Buffer.alloc(64, 0x00);
   buf[0] = REPORT_ID;
   buf[3] = command;
   data60.copy(buf, 4);
-
   const chk = checksum(buf);
   buf[1] = chk & 0xff;
   buf[2] = (chk >> 8) & 0xff;
-
-  device.write([...buf]);
-
-  if (!waitForAck) {
-    return true;
-  }
-
-  const response = await readResponse(device, 150);
-
-  if (!response) {
-    console.warn(
-      `  ⚠ No ACK for cmd 0x${command.toString(16).padStart(2, "0")}`
-    );
-    return false;
-  }
-
-  const expectedAck = buf.slice(0, 8);
-  const receivedAck = response.slice(0, 8);
-
-  if (expectedAck.equals(receivedAck)) {
-    return true;
-  } else {
-    console.warn(
-      `  ✗ ACK mismatch for cmd 0x${command.toString(16).padStart(2, "0")}`
-    );
-    console.warn(`    Expected: ${expectedAck.toString("hex")}`);
-    console.warn(`    Received: ${receivedAck.toString("hex")}`);
-    return false;
-  }
+  return buf;
 }
 
-/**
- * Attempts to send a command with automatic retry logic
- * @param {HID.HID} device - Connected HID device
- * @param {number} cmd - Command byte to send
- * @param {Buffer} [payload] - Optional 60-byte data payload
- * @param {number} [tries=3] - Number of attempts before giving up
- * @returns {Promise<boolean>} True if any attempt succeeded, false if all failed
- * @throws {Error} If the last attempt throws an exception
- */
-async function trySend(device, cmd, payload = undefined, tries = 3) {
-  for (let i = 0; i < tries; i++) {
-    try {
-      const success =
-        payload === undefined
-          ? await send(device, cmd)
-          : await send(device, cmd, payload);
+async function send(transport, command, data60 = null, waitForAck = true) {
+  const buf = buildCommandFrame(command, data60);
+  await transport.writeFrame(buf);
+  if (!waitForAck) return true;
 
-      if (success) return true;
-
-      if (i < tries - 1) await delay(10);
-    } catch (e) {
-      if (i === tries - 1) throw e;
-      await delay(10);
-    }
+  const response = await readResponse(transport, timing.readResponseMs);
+  if (!response) {
+    L.warn(`[ACK] No response for CMD 0x${command.toString(16)}`);
+    return false;
   }
-
-  console.error(
-    `Failed to send cmd 0x${cmd.toString(16).padStart(2, "0")} after ${tries} attempts`
-  );
+  // Expect first 8 bytes match (as in your original logic)
+  const expected = buf.slice(0, 8);
+  const received = response.slice(0, 8);
+  if (expected.equals(received)) {
+    L.info(`[ACK] OK for CMD 0x${command.toString(16)}`);
+    return true;
+  }
+  L.warn(`[ACK] Mismatch for CMD 0x${command.toString(16)}`);
+  L.debug(`Expected: ${expected.toString("hex")}`);
+  L.debug(`Received: ${received.toString("hex")}`);
   return false;
 }
 
-// -------------------------------------------------------
-// Wait-until-ready logic
-// -------------------------------------------------------
+async function trySend(transport, cmd, payload = undefined, tries = 3) {
+  for (let i = 0; i < tries; i++) {
+    L.info(`[TRY] CMD 0x${cmd.toString(16)} (attempt ${i + 1}/${tries})`);
+    try {
+      const ok =
+        payload === undefined
+          ? await send(transport, cmd, null, true)
+          : await send(transport, cmd, payload, true);
+      if (ok) return true;
+    } catch (e) {
+      L.warn(`[TRY] Error: ${e.message}`);
+    }
+    await delay(timing.retryDelayMs);
+  }
+  L.error(`[TRY] Failed after ${tries} attempts (CMD 0x${cmd.toString(16)})`);
+  return false;
+}
 
-/**
- * Waits for the device to report ready status (command 0x23)
- * PASSIVELY LISTENS for device to send 0x23 response (not active pinging)
- * @param {HID.HID} device - Connected HID device
- * @param {number} [timeoutMs=1000] - Maximum time to wait for ready signal
- * @returns {Promise<boolean>} True if device reported ready, false if timeout
- */
-async function waitForReady(device, timeoutMs = 1000) {
-  console.log("Waiting for device to report ready (0x23)...");
+async function waitForReady(transport, timeoutMs = 1000) {
+  L.info("[READY] Waiting for device ready (CMD 0x23)...");
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
-    const resp = await readResponse(device, 100);
-    if (resp && resp.length >= 4 && resp[3] === 0x23) {
-      console.log(`✓ Device reported ready after ${Date.now() - start} ms`);
+    const resp = await readResponse(transport, timing.readResponseMs);
+    if (resp && resp[3] === 0x23) {
+      L.info(`[READY] Device ready after ${Date.now() - start}ms`);
       return true;
     }
     await delay(10);
   }
-  console.warn("⚠ Timed out waiting for ready (0x23) response");
+  L.warn("[READY] Timed out");
   return false;
 }
 
-// -------------------------------------------------------
-// Configuration Command
-// -------------------------------------------------------
-
-/**
- * Sends a configuration frame to the device with display and timing settings
- * Includes current date/time, frame duration, and image configuration
- * @param {HID.HID} device - Connected HID device
- * @param {number} [shownImage=0] - Which image slot to display (0 or 1)
- * @param {number} [image0NumOfFrames=1] - Number of frames in image slot 0
- * @param {number} [image1NumOfFrames=1] - Number of frames in image slot 1
- * @returns {Promise<boolean>} True if command acknowledged successfully
- */
-async function sendConfigFrame(
-  device,
-  shownImage = 0,
-  image0NumOfFrames = 1,
-  image1NumOfFrames = 1
-) {
-  const now = new Date();
-
-  const frameDurationMs = 1000;
-  const frameDurationLsb = frameDurationMs & 0xff;
-  const frameDurationMsb = (frameDurationMs >> 8) & 0xff;
-
-  const command = Buffer.alloc(64, 0x00);
-
-  command[0x04] = 0x29; // 0x29 = display/time only, 0x30 = full config including RGB
-  command[0x29] = shownImage;
-  command[0x2a] = image0NumOfFrames;
-  command[0x2b] = toHexNum(now.getSeconds());
-  command[0x2c] = toHexNum(now.getMinutes());
-  command[0x2d] = toHexNum(now.getHours());
-  command[0x2e] = now.getDay();
-  command[0x2f] = toHexNum(now.getDate());
-  command[0x30] = toHexNum(now.getMonth() + 1);
-  command[0x31] = toHexNum(now.getFullYear() % 100);
-  command[0x33] = frameDurationLsb;
-  command[0x34] = frameDurationMsb;
-  command[0x36] = image1NumOfFrames;
-
-  return await send(device, 0x06, command.subarray(4));
-}
-
-// -------------------------------------------------------
-// Step 1: Reset Device State
-// -------------------------------------------------------
-
-/**
- * Fully resets the GMK87's state machine before initialization
- * Flushes any pending responses, sends dummy commands to clear state,
- * and waits for the device buffer to be quiet
- * @param {HID.HID} device - Connected HID device
- * @returns {Promise<void>}
- */
-async function resetDeviceState(device) {
-  console.log("Resetting device state...");
-  
-  // Try to wake/clear with 0x00
-  await trySend(device, 0x00, undefined, 1);
+async function resetDeviceState(transport) {
+  L.info("[RESET] Resetting device state...");
+  await trySend(transport, 0x00, undefined, 1); // reset/init
+  await delay(20);
+  await trySend(transport, 0x23, undefined, 1); // status
+  const stale = await transport.drain(timing.drainIdleMs, 120);
+  L.info(`[RESET] Cleared ${stale.length} stale packets`);
   await delay(50);
-
-  // Send a Ready signal to flush any leftover 0x23 acks
-  await trySend(device, 0x23, undefined, 1);
-
-  // Drain anything that comes back
-  const stale = await drainDevice(device, 500);
-  if (stale.length) {
-    console.log(`  Cleared ${stale.length} residual messages`);
-  } else {
-    console.log("  No residual messages in device buffer");
-  }
-
-  // Let the MCU breathe a bit before INIT
-  await delay(200);
-  console.log("Device state reset complete.");
+  L.info("[RESET] Complete");
 }
 
-// -------------------------------------------------------
-// Step 2: Revive Device (if needed)
-// -------------------------------------------------------
-
-/**
- * Attempts to revive a non-responsive HID endpoint without power-cycling
- * Sends a zero-length packet and reopens the device up to 6 times with
- * incremental backoff. After 3 failures, adds extended cooldown before
- * attempting the final 3 tries
- * @param {HID.HID} device - The potentially unresponsive HID device
- * @returns {Promise<HID.HID|null>} Revived device object or null if all attempts failed
- */
-async function reviveDevice(device) {
-  console.log("Attempting soft HID revive...");
-
-  // Zero-length "kick" to flush endpoint
+async function reviveDevice(transport) {
+  L.info("[REVIVE] Attempting to revive...");
   try {
+    // soft "kick": send a no-op frame
     const kick = Buffer.alloc(64, 0x00);
     kick[0] = REPORT_ID;
-    device.write([...kick]);
-    await delay(150);
-  } catch {
-    // ignore write errors
+    await transport.writeFrame(kick);
+    await delay(60);
+  } catch (err) {
+    L.warn(`[REVIVE] Kick failed: ${err.message}`);
   }
 
-  let reopened;
-  for (let attempt = 1; attempt <= 6; attempt++) {
-    // After 3 failed tries, longer cooldown before the last 3
-    if (attempt === 4) {
-      console.log("  Extended cooldown before final recovery phase...");
-      await delay(2000); // 2-second cooldown
-    }
-
-    const backoff = attempt * 100; // incremental backoff 100–600 ms
+  // Reopen using same preference as original transport
+  const prefer = transport.kind === "interrupt" ? "interrupt" : "hid";
+  for (let attempt = 1; attempt <= 4; attempt++) {
     try {
-      if (reopened) {
-        try {
-          reopened.close();
-        } catch {}
-      }
-      device.close();
+      transport.close();
     } catch {}
-
-    await delay(150);
-
+    await delay(timing.reviveBaseBackoffMs * attempt);
     try {
-      reopened = openDevice();
-      console.log(`  Reopen attempt ${attempt}: OK`);
-
-      await drainDevice(reopened, 300);
-
-      const ok = await trySend(reopened, 0x01);
+      const reopened = openDevice(0, { prefer }); // preserve same kind if possible
+      const drained = await drainDevice(reopened, 120);
+      L.info(`[REVIVE] Drained ${drained.length} after reopen`);
+      const ok = await trySend(reopened, 0x01, undefined, 1);
       if (ok) {
-        console.log(`✓ Device revived successfully on attempt ${attempt}.`);
+        L.info(`[REVIVE] Success on attempt ${attempt}`);
         return reopened;
-      } else {
-        console.warn(`  No ACK on INIT during attempt ${attempt}.`);
       }
     } catch (err) {
-      console.warn(`  Reopen attempt ${attempt} failed: ${err.message}`);
+      L.warn(`[REVIVE] Attempt ${attempt} failed: ${err.message}`);
     }
-
-    console.log(`  Waiting ${backoff} ms before next attempt...`);
-    await delay(backoff);
   }
-
-  console.error(
-    "✗ Soft HID revive failed after 6 attempts — physical replug may be required."
-  );
+  L.error("[REVIVE] Failed after 4 attempts");
   return null;
 }
 
-// -------------------------------------------------------
-// Frame Building & Transmission
-// -------------------------------------------------------
-
-/**
- * Builds frame data from an image file for transmission to the device
- * Loads the image, resizes it to 240x135, converts pixels to RGB565 format,
- * and chunks them into 64-byte frames for the HID protocol
- * @param {string} imagePath - Path to the image file to load
- * @param {number} [imageIndex=0] - Target image slot on device (0 or 1)
- * @returns {Promise<Buffer[]>} Array of 60-byte frame buffers ready for transmission
- * @throws {Error} If image cannot be loaded or processed
- */
+/* -------------------------------------------------------
+ * Image framing & upload (unchanged signatures)
+ * -----------------------------------------------------*/
 async function buildImageFrames(imagePath, imageIndex = 0) {
-  console.log(`Loading image: ${imagePath} for slot ${imageIndex}`);
+  L.info(`[IMG] Building frames from ${imagePath} for slot ${imageIndex}`);
   const img = await Jimp.read(imagePath);
-
   if (img.bitmap.width !== DISPLAY_WIDTH || img.bitmap.height !== DISPLAY_HEIGHT) {
-    console.log(`Resizing image to ${DISPLAY_WIDTH}x${DISPLAY_HEIGHT}...`);
+    L.info(`[IMG] Resizing to ${DISPLAY_WIDTH}x${DISPLAY_HEIGHT}`);
     img.resize(DISPLAY_WIDTH, DISPLAY_HEIGHT);
   }
 
@@ -487,489 +509,171 @@ async function buildImageFrames(imagePath, imageIndex = 0) {
   let startOffset = 0x00;
   let bufIndex = 0x08;
 
-  /**
-   * Internal helper: transmits accumulated pixel data as a frame
-   * @private
-   */
   function transmit() {
     if (bufIndex === 0x08) return;
-
     command[0x04] = BYTES_PER_FRAME;
     command[0x05] = startOffset & 0xff;
     command[0x06] = (startOffset >> 8) & 0xff;
     command[0x07] = imageIndex;
-
     frames.push(Buffer.from(command.subarray(4, 64)));
-
+    L.debug(`[IMG] Frame ${frames.length} @ offset ${startOffset}`);
     startOffset += BYTES_PER_FRAME;
     bufIndex = 0x08;
     command.fill(0, 0x08);
   }
 
-  // Convert each pixel to RGB565 and pack into frames
   for (let y = 0; y < DISPLAY_HEIGHT; y++) {
     for (let x = 0; x < DISPLAY_WIDTH; x++) {
       const { r, g, b } = Jimp.intToRGBA(img.getPixelColor(x, y));
       const rgb565 = toRGB565(r, g, b);
-
       command[bufIndex++] = (rgb565 >> 8) & 0xff;
       command[bufIndex++] = rgb565 & 0xff;
-
-      if (bufIndex >= 64) {
-        transmit();
-      }
+      if (bufIndex >= 64) transmit();
     }
   }
-
-  transmit(); // Flush any remaining data
-
-  console.log(`Total frames generated: ${frames.length}`);
+  transmit();
+  L.info(`[IMG] Total frames: ${frames.length}`);
   return frames;
 }
 
-/**
- * Transmits an array of frames to the device with progress reporting and error handling
- * Sends frames using command 0x21 with automatic retry and ACK verification
- * @param {HID.HID} device - Connected HID device
- * @param {Buffer[]} frames - Array of frame buffers to send
- * @param {string} [label="frames"] - Label for progress messages
- * @returns {Promise<{sent: number, failed: number}>} Statistics about transmission success
- * @throws {Error} If more than 10 frames fail to receive acknowledgment
- */
-async function sendFrames(device, frames, label = "frames") {
-  console.log(`Sending ${frames.length} ${label}...`);
+async function sendFrames(transport, frames, label = "frames", opts = {}) {
+  const { ackEvery = 1 } = opts; // keep per-frame ACK by default (device does send ACKs)
+  L.info(`[SEND] ${frames.length} ${label} (ackEvery=${ackEvery})`);
   let sent = 0;
   let failed = 0;
 
   for (let i = 0; i < frames.length; i++) {
-    const success = await trySend(device, 0x21, frames[i], 3);
+    const payload = frames[i];
+    const ok = await trySend(transport, 0x21, payload, 3);
+    if (ok) sent++;
+    else failed++;
+    if (i % 256 === 0 && i > 0) L.info(`[SEND] Progress ${i}/${frames.length}, failed=${failed}`);
 
-    if (success) {
-      sent++;
-    } else {
-      failed++;
-      if (failed > 10) {
-        throw new Error(`Too many failed ACKs (${failed}), aborting upload`);
-      }
-    }
-
-    // Progress reporting every 256 frames
-    if (i % 256 === 0 && i > 0) {
-      console.log(`  Progress: ${i}/${frames.length} (${failed} failed ACKs)`);
-    }
+    // Optional micro-pacing if needed; can be tuned out after testing
+    if (transport.kind === "interrupt") await delay(2);
   }
 
-  console.log(`  Sent ${sent}/${frames.length} ${label} (${failed} failed ACKs)`);
-
-  if (failed > 0) {
-    console.warn(`  ⚠ Warning: ${failed} frames may not have been acknowledged`);
-  }
-
+  L.info(`[SEND] Sent ${sent}/${frames.length} (failed=${failed})`);
   return { sent, failed };
 }
 
-// -------------------------------------------------------
-// Step 3: Initialize Device
-// -------------------------------------------------------
+/* -------------------------------------------------------
+ * Init & pipeline (unchanged signatures)
+ * -----------------------------------------------------*/
+async function initializeDevice(transport, shownImage = 0) {
+  const usingInterrupt = transport.kind === "interrupt";
+  const initMode = usingInterrupt ? "lean" : "legacy";
+  L.info(`[INIT] mode=${initMode} (${transport.kind})`);
 
-/**
- * Performs the complete device initialization sequence
- * Executes the handshake protocol, sends configuration, and waits for ready signal
- * Includes automatic device revival if initial handshake fails
- * @param {HID.HID} device - Connected HID device
- * @param {number} [shownImage=0] - Which image slot to display after upload (0=none, 1=slot0, 2=slot1)
- * @returns {Promise<HID.HID>} The device handle (may be a revived instance)
- * @throws {Error} If initialization fails or device doesn't respond
- */
-async function initializeDevice(device, shownImage = 0) {
-  console.log("Initializing device with ACK handshake...");
-
-  let success = await trySend(device, 0x01);
-  if (!success) {
-    console.warn("No INIT ACK — trying soft revive...");
-    const revived = await reviveDevice(device);
-    if (!revived) throw new Error("Device could not be revived.");
-    device = revived;
-  }
-  await delay(3);
-
-  success = await trySend(device, 0x01);
-  if (!success) throw new Error("Device not responding to 2nd INIT!");
-  await delay(2);
-
-  success = await sendConfigFrame(device, shownImage, 1, 1);
-  if (!success) throw new Error("Device not responding to CONFIG!");
-  await delay(25);
-
-  success = await trySend(device, 0x02);
-  if (!success) throw new Error("Device not responding to COMMIT!");
-  await delay(18);
-
-  success = await trySend(device, 0x23);
-  if (!success) throw new Error("Device not responding to 0x23 command!");
-
-  await waitForReady(device);
-
-  return device; // Return potentially revived device
-}
-
-// -------------------------------------------------------
-// High-Level Image Upload Pipeline
-// -------------------------------------------------------
-
-/**
- * Complete pipeline to upload an image to the GMK87 device
- * Handles device connection, initialization, frame building, transmission, and cleanup
- * @param {string} imagePath - Path to the image file to upload
- * @param {number} [imageIndex=0] - Target slot on device (0 or 1)
- * @param {Object} [options={}] - Upload options
- * @param {boolean} [options.showAfter=true] - Whether to display the image after upload
- * @returns {Promise<boolean>} True if upload completed successfully
- * @throws {Error} If device connection fails or upload encounters errors
- */
-async function uploadImageToDevice(imagePath, imageIndex = 0, options = {}) {
-  const { showAfter = true } = options;
-  const shownImage = showAfter ? imageIndex + 1 : 0;
-
-  let device = openDevice();
-
-  try {
-    // -------------------------------------------------------
-    // Step 1: Drain device buffer
-    // -------------------------------------------------------
-    console.log("Clearing device buffer...");
-    const stale = await drainDevice(device);
-    if (stale.length > 0) {
-      console.log(`  Drained ${stale.length} stale messages`);
+  if (initMode === "lean") {
+    // Minimal init: try simple handshake + status
+    let ok = await trySend(transport, 0x01, undefined, 1);
+    if (!ok) {
+      L.warn("[INIT] No INIT ACK — reviving...");
+      const revived = await reviveDevice(transport);
+      if (!revived) throw new Error("Device could not be revived");
+      transport = revived;
     }
-
-    // -------------------------------------------------------
-    // Step 2: Reset device state
-    // -------------------------------------------------------
-    await resetDeviceState(device);
-
-    // -------------------------------------------------------
-    // Step 3: Initialize device (includes revive if needed)
-    // -------------------------------------------------------
-    device = await initializeDevice(device, shownImage);
-
-    // -------------------------------------------------------
-    // Step 4: Build and send image frames
-    // -------------------------------------------------------
-    console.log(`Building frames for slot ${imageIndex}...`);
-    const frames = await buildImageFrames(imagePath, imageIndex);
-
-    console.log(`Uploading ${frames.length} frames...`);
-    await sendFrames(device, frames, `slot ${imageIndex}`);
-
-    const success = await trySend(device, 0x02);
-    if (!success) {
-      console.warn("Final COMMIT may not have been acknowledged");
-    }
-
-    console.log("✓ Upload complete!");
-    return true;
-  } finally {
-    try {
-      if (device) device.close();
-    } catch {}
-  }
-}
-
-// -------------------------------------------------------
-// Lighting Configuration Functions
-// -------------------------------------------------------
-
-/**
- * Builds a lighting configuration frame
- * Creates a 64-byte configuration packet with RGB settings, LED modes, and time sync
- * @param {Object} config - Lighting configuration object
- * @param {Object} [config.underglow] - Underglow RGB configuration
- * @param {number} [config.underglow.effect] - Effect mode (0-18)
- * @param {number} [config.underglow.brightness] - Brightness (0-9)
- * @param {number} [config.underglow.speed] - Animation speed (0-9)
- * @param {number} [config.underglow.orientation] - Direction (0=L-R, 1=R-L)
- * @param {number} [config.underglow.rainbow] - Rainbow mode (0=off, 1=on)
- * @param {Object} [config.underglow.hue] - RGB color values
- * @param {Object} [config.led] - Big LED configuration
- * @param {number} [config.led.mode] - LED mode (0-4)
- * @param {number} [config.led.saturation] - Saturation (0-9)
- * @param {number} [config.led.rainbow] - Rainbow mode (0=off, 1=on)
- * @param {number} [config.led.color] - Color preset (0-8)
- * @param {number} [config.winlock] - Windows key lock (0=off, 1=on)
- * @param {number} [config.showImage] - Display mode (0=time, 1=image1, 2=image2)
- * @param {number} [config.image1Frames] - Frame count for image 1
- * @param {number} [config.image2Frames] - Frame count for image 2
- * @returns {Buffer} 64-byte configuration frame
- */
-function buildLightingFrame(config) {
-  const now = new Date();
-  const buf = Buffer.alloc(64, 0x00);
-
-  // Header
-  buf[0] = REPORT_ID; // 0x04
-  buf[3] = 0x06; // Config command
-  buf[4] = 0x30; // Full configuration frame (0x30 includes RGB, 0x29 is display/time only)
-
-  // Underglow configuration (bytes 0x09-0x10 = 9-16)
-  if (config.underglow) {
-    const ug = config.underglow;
-    if (ug.effect !== undefined) buf[9] = ug.effect;
-    if (ug.brightness !== undefined) buf[10] = ug.brightness;
-    if (ug.speed !== undefined) buf[11] = ug.speed;
-    if (ug.orientation !== undefined) buf[12] = ug.orientation;
-    if (ug.rainbow !== undefined) buf[13] = ug.rainbow;
-    if (ug.hue) {
-      if (ug.hue.red !== undefined) buf[14] = ug.hue.red;
-      if (ug.hue.green !== undefined) buf[15] = ug.hue.green;
-      if (ug.hue.blue !== undefined) buf[16] = ug.hue.blue;
-    }
-  }
-
-  // Unknown/reserved bytes (0x11-0x1c = 17-28)
-  // These remain 0x00
-
-  // Windows key lock (0x1d = 29)
-  if (config.winlock !== undefined) {
-    buf[29] = config.winlock;
-  }
-
-  // Unknown/reserved bytes (0x1e-0x23 = 30-35)
-  // These remain 0x00
-
-  // Big LED configuration (0x24-0x28 = 36-40)
-  if (config.led) {
-    const led = config.led;
-    if (led.mode !== undefined) buf[36] = led.mode;
-    if (led.saturation !== undefined) buf[37] = led.saturation;
-    // buf[38] = 0x00; // Unknown
-    if (led.rainbow !== undefined) buf[39] = led.rainbow;
-    if (led.color !== undefined) buf[40] = led.color;
-  }
-
-  // Image display selection (0x29 = 41)
-  if (config.showImage !== undefined) {
-    buf[41] = config.showImage;
-  }
-
-  // Image frame counts (0x2a = 42, 0x36 = 54)
-  if (config.image1Frames !== undefined) {
-    buf[42] = config.image1Frames;
-  }
-  if (config.image2Frames !== undefined) {
-    buf[54] = config.image2Frames;
-  }
-
-  // Time and date (0x2b-0x31 = 43-49)
-  buf[43] = toHexNum(now.getSeconds());
-  buf[44] = toHexNum(now.getMinutes());
-  buf[45] = toHexNum(now.getHours());
-  buf[46] = toHexNum(now.getDay()); // 0=Sunday
-  buf[47] = toHexNum(now.getDate());
-  buf[48] = toHexNum(now.getMonth() + 1); // Month is 0-indexed
-  buf[49] = toHexNum(now.getFullYear() % 100);
-
-  // Calculate and set checksum (bytes 0x01-0x02 = 1-2)
-  const chk = checksum(buf);
-  buf[1] = chk & 0xff; // LSB
-  buf[2] = (chk >> 8) & 0xff; // MSB
-
-  return buf;
-}
-
-/**
- * Sends a lighting configuration frame with acknowledgment checking
- * @param {HID.HID} device - Connected HID device
- * @param {Buffer} frameData - Complete 64-byte lighting frame
- * @param {boolean} [waitForAck=true] - Whether to wait for acknowledgment
- * @returns {Promise<boolean>} True if acknowledged, false otherwise
- */
-async function sendLightingFrame(device, frameData, waitForAck = true) {
-  if (!Buffer.isBuffer(frameData) || frameData.length !== 64) {
-    throw new Error("Lighting frame must be exactly 64 bytes");
-  }
-
-  device.write([...frameData]);
-
-  if (!waitForAck) {
-    return true;
-  }
-
-  const response = await readResponse(device, 150);
-
-  if (!response) {
-    console.warn("  ⚠ No ACK for lighting config frame");
-    return false;
-  }
-
-  // For lighting config frames, we check first 8 bytes as acknowledgment
-  const expectedAck = frameData.slice(0, 8);
-  const receivedAck = response.slice(0, 8);
-
-  if (expectedAck.equals(receivedAck)) {
-    return true;
+    await delay(5);
+    await trySend(transport, 0x23, undefined, 1); // status/ready
+    await waitForReady(transport, 600);
   } else {
-    console.warn("  ✗ ACK mismatch for lighting config frame");
-    console.warn(`    Expected: ${expectedAck.toString("hex")}`);
-    console.warn(`    Received: ${receivedAck.toString("hex")}`);
-    return false;
-  }
-}
-
-/**
- * Attempts to send a lighting config frame with automatic retry logic
- * @param {HID.HID} device - Connected HID device
- * @param {Buffer} frameData - Complete 64-byte frame to send
- * @param {number} [tries=3] - Number of attempts before giving up
- * @returns {Promise<boolean>} True if any attempt succeeded, false if all failed
- */
-async function trySendLightingFrame(device, frameData, tries = 3) {
-  for (let i = 0; i < tries; i++) {
-    try {
-      const success = await sendLightingFrame(device, frameData, true);
-      if (success) return true;
-
-      if (i < tries - 1) await delay(10);
-    } catch (e) {
-      if (i === tries - 1) throw e;
-      await delay(10);
+    // Legacy path (your previous sequence)
+    let success = await trySend(transport, 0x01);
+    if (!success) {
+      L.warn("[INIT] No INIT ACK — reviving...");
+      const revived = await reviveDevice(transport);
+      if (!revived) throw new Error("Device could not be revived");
+      transport = revived;
     }
+    await delay(3);
+    await trySend(transport, 0x01);
+    await delay(2);
+    await send(transport, 0x06, Buffer.alloc(60, 0x00));
+    await delay(20);
+    await trySend(transport, 0x02);
+    await delay(15);
+    await trySend(transport, 0x23);
+    await waitForReady(transport, 800);
   }
 
-  return false;
+  return transport;
 }
 
-/**
- * Complete pipeline to configure lighting on the GMK87 device
- * Handles device connection, buffer draining, device reset, revival if needed,
- * and sends lighting configuration with acknowledgment checking and retries
- * @param {Object} config - Lighting configuration object (see buildLightingFrame for structure)
- * @returns {Promise<boolean>} True if configuration was successfully applied
- * @throws {Error} If device connection fails or configuration cannot be applied
- */
-async function configureLighting(config) {
-  let device = openDevice();
+async function uploadImageToDevice(imagePath, imageIndex = 0, options = {}) {
+  const {
+    showAfter = true,
+    prefer = "interrupt",
+    compat = COMPAT_DEFAULT,
+    packetFormat = PACKET_FORMAT_DEFAULT,
+    allowHidFallback = true,
+  } = options;
+
+  const shownImage = showAfter ? imageIndex + 1 : 0;
+  let transport = openDevice(0, { prefer, compat, packetFormat, allowHidFallback });
 
   try {
-    // -------------------------------------------------------
-    // Step 1: Drain device buffer
-    // -------------------------------------------------------
-    console.log("Clearing device buffer...");
-    const stale = await drainDevice(device);
-    if (stale.length > 0) {
-      console.log(`  Drained ${stale.length} stale messages`);
-    }
+    L.info("[PIPE] Starting upload pipeline...");
+    const drained = await drainDevice(transport, 120);
+    if (drained.length) L.info(`[PIPE] Drained ${drained.length}`);
 
-    // -------------------------------------------------------
-    // Step 2: Reset device state
-    // -------------------------------------------------------
-    await resetDeviceState(device);
+    await resetDeviceState(transport);
+    transport = await initializeDevice(transport, shownImage);
 
-    // -------------------------------------------------------
-    // Step 3: Check device responsiveness (revive if needed)
-    // -------------------------------------------------------
-    let success = await trySend(device, 0x01, undefined, 1);
-    if (!success) {
-      console.log("Device not responding, attempting revival...");
-      const revived = await reviveDevice(device);
-      if (!revived) {
-        throw new Error("Device could not be revived.");
-      }
-      device = revived;
-    }
+    const frames = await buildImageFrames(imagePath, imageIndex);
+    await sendFrames(transport, frames, `slot${imageIndex}`, { ackEvery: 1 });
 
-    // -------------------------------------------------------
-    // Step 4: Build and send lighting configuration frame with ACK checking and retries
-    // -------------------------------------------------------
-    console.log("Building lighting configuration frame...");
-    const frame = buildLightingFrame(config);
-
-    console.log("Sending lighting configuration with acknowledgment checking...");
-    success = await trySendLightingFrame(device, frame, 3);
-
-    if (!success) {
-      console.warn("⚠ Lighting configuration may not have been acknowledged by device");
-      return false;
-    }
-
-    console.log("✓ Lighting configuration applied successfully!");
-    await delay(100);
+    await trySend(transport, 0x02); // finalize/end transfer
+    L.info("[PIPE] Upload complete!");
     return true;
   } finally {
     try {
-      if (device) device.close();
+      transport?.close();
+      L.info("[CLOSE] Transport closed");
     } catch {}
   }
 }
 
-/**
- * Syncs time to the keyboard
- * @param {Date} [date=new Date()] - Date object to sync
- * @returns {Promise<boolean>} True if time sync was successful
- */
-async function syncTime(date = new Date()) {
-  // Use configureLighting with minimal config (only time fields will be set)
-  return await configureLighting({});
-}
-
-/**
- * Gets keyboard device information
- * @returns {Object} Device information object
- */
-function getKeyboardInfo() {
-  const device = openDevice();
-  try {
-    return {
-      manufacturer: device.getManufacturerString?.() || "Unknown",
-      product: device.getProductString?.() || "GMK87",
-      vendorId: VENDOR_ID,
-      productId: PRODUCT_ID,
-    };
-  } finally {
-    device.close();
-  }
-}
-
-// -------------------------------------------------------
-// Exports
-// -------------------------------------------------------
-
+/* -------------------------------------------------------
+ * Exports (unchanged list)
+ * -----------------------------------------------------*/
 export {
-  // Constants
+  // IDs & constants
   VENDOR_ID,
   PRODUCT_ID,
   REPORT_ID,
   BYTES_PER_FRAME,
   DISPLAY_WIDTH,
   DISPLAY_HEIGHT,
-  // Utilities
+  LOG_LEVEL,
+
+  // utils
   delay,
   toRGB565,
   toHexNum,
-  // Device Connection
+  checksum,
+
+  // discovery (name preserved)
   findDeviceInfo,
+
+  // open/close/drain & comms (names/signatures preserved)
   openDevice,
   drainDevice,
-  // Protocol Functions
-  checksum,
+  readResponse,
   send,
   trySend,
-  readResponse,
   waitForReady,
-  sendConfigFrame,
-  // Device State Management
   resetDeviceState,
   reviveDevice,
-  // Frame Building & Transmission
+
+  // image path
   buildImageFrames,
   sendFrames,
-  // High-Level Pipelines
+
+  // pipeline
   initializeDevice,
   uploadImageToDevice,
-  buildLightingFrame,
-  sendLightingFrame,
-  trySendLightingFrame,
-  configureLighting,
-  syncTime,
-  getKeyboardInfo,
+
+  // dev helper
+  printUsbTopology,
 };

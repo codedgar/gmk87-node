@@ -22,7 +22,8 @@
   },
   "dependencies": {
     "jimp": "^0.22.10",
-    "node-hid": "^2.2.0"
+    "node-hid": "^2.2.0",
+    "usb": "^2.16.0"
   },
   "engines": {
     "node": ">=14.0.0"
