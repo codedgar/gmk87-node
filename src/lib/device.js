@@ -6,6 +6,7 @@
 
 import usb from "usb";
 import Jimp from "jimp";
+import HID from "node-hid";
 
 /* -------------------------
  * Constants
@@ -34,6 +35,16 @@ function checksum(buf){let s=0;for(let i=3;i<64;i++)s=(s+(buf[i]&0xff))&0xffff;r
 async function drain(transport, windowMs=120){const start=Date.now();let n=0;while(Date.now()-start<windowMs){const rx=await transport.readOnce(20);if(!rx)break;n++;L.debug(`[DRAIN][RX] ${rx.toString("hex")}`);}if(n)L.info(`[DRAIN] cleared ${n} messages`);}
 
 /* -------------------------
+ * Time Sync Utilities
+ * ------------------------*/
+function toHexNum(num) {
+  if (num < 0 || num >= 100) throw new RangeError("toHexNum expects 0..99");
+  const low = num % 10;
+  const high = Math.floor(num / 10);
+  return (high << 4) | low;
+}
+
+/* -------------------------
  * Transport (FIXED VERSION)
  * ------------------------*/
 class InterruptTransport {
@@ -42,27 +53,20 @@ class InterruptTransport {
     this.iface = iface;
     this.epOut = epOut;
     this.epIn = epIn;
-    this.responseQueue = [];  // ✅ ADD: Queue for polled responses
-    this.setupPolling();       // ✅ ADD: Set up event handlers
+    this.responseQueue = [];
+    this.setupPolling();
   }
 
-  // ✅ NEW: Proper polling setup with event handlers
   setupPolling() {
-    // Start continuous polling: 2 concurrent transfers, 8 bytes each
     this.epIn.startPoll(2, 8);
-    
-    // Handle incoming data - push to queue
     this.epIn.on('data', (data) => {
       const buf = Buffer.from(data);
       L.debug(`[INT][RX] ${buf.toString('hex')}`);
       this.responseQueue.push(buf);
     });
-    
-    // Handle errors
     this.epIn.on('error', (err) => {
       L.warn(`[INT][RX] ERROR: ${err.message}`);
     });
-    
     L.info('[USB] IN endpoint polling active');
   }
 
@@ -76,25 +80,22 @@ class InterruptTransport {
     });
   }
 
-  // ✅ CHANGED: Read from queue instead of calling transfer()
   async readFromQueue(timeoutMs = 200) {
     const end = Date.now() + timeoutMs;
     while (Date.now() < end) {
       if (this.responseQueue.length > 0) {
         return this.responseQueue.shift();
       }
-      await delay(5); // Check every 5ms
+      await delay(5);
     }
-    return null; // Timeout
+    return null;
   }
 
-  // ✅ CHANGED: Use readFromQueue instead of transfer()
   readOnce(t = 200) {
     return this.readFromQueue(t);
   }
 }
 
-/** Claim only interface exposing OUT 0x05 / IN 0x83 */
 function createInterruptTransport() {
   const dev = usb.getDeviceList().find(
     d =>
@@ -105,9 +106,6 @@ function createInterruptTransport() {
   dev.open();
   L.info("[USB] Device opened");
 
-  // ✅ Do NOT detach interface #1 (keeps keyboard alive)
-
-  // --- Use display interface #3 (0x05 OUT / 0x83 IN) ---
   const iface = dev.interfaces.find(i => i.interfaceNumber === 3);
   if (!iface) throw new Error("Interface #3 not found");
   const epOut = iface.endpoints.find(e => e.direction === "out");
@@ -125,13 +123,7 @@ function createInterruptTransport() {
 
   iface.claim();
   L.info("[USB] Claimed interface #3 (display uploader)");
-  L.info(
-    `[USB] Using interrupt endpoints OUT 0x${epOut.address.toString(
-      16
-    )} / IN 0x${epIn.address.toString(16)}`
-  );
-
-  // ✅ FIXED: Polling setup now happens in InterruptTransport constructor
+  L.info(`[USB] Using interrupt endpoints OUT 0x${epOut.address.toString(16)} / IN 0x${epIn.address.toString(16)}`);
   return new InterruptTransport(dev, iface, epOut, epIn);
 }
 
@@ -140,7 +132,7 @@ function openDevice(){return createInterruptTransport();}
 /* -------------------------
  * Protocol helpers
  * ------------------------*/
-async function readAckFiltered(t,timeout=200){  // ✅ CHANGED: 120→200ms timeout
+async function readAckFiltered(t,timeout=200){
   const end=Date.now()+timeout;
   while(Date.now()<end){
     const rx=await t.readOnce(Math.max(10,end-Date.now()));
@@ -155,7 +147,7 @@ async function send(t,cmd,data60=null,wait=true){
   if(!data60)data60=Buffer.alloc(60,0);if(!Buffer.isBuffer(data60)||data60.length!==60)throw new Error("data60 must be 60 bytes");
   const buf=Buffer.alloc(64,0);buf[0]=REPORT_ID;buf[3]=cmd&0xff;data60.copy(buf,4);const chk=checksum(buf);buf[1]=chk&0xff;buf[2]=(chk>>8)&0xff;
   await t.write(buf);if(!wait)return true;
-  const rx=await readAckFiltered(t,200);  // ✅ CHANGED: 160→200ms
+  const rx=await readAckFiltered(t,200);
   if(!rx){L.warn(`[ACK] Timeout CMD 0x${cmd.toString(16)}`);return false;}
   const txHdr=buf.subarray(0,4),rxHdr=rx.subarray(0,4),status=rx.subarray(4,8);
   if(!txHdr.equals(rxHdr)){L.warn(`[ACK] header mismatch 0x${cmd.toString(16)}`);L.info(`[ACK][status] ${status.toString("hex")}`);return false;}
@@ -166,101 +158,146 @@ async function waitForReady(t,ms=600){const d=Date.now()+ms;while(Date.now()<d){
 async function resetDeviceState(t){L.info("[RESET] Drain");await drain(t,120);await send(t,0x00,undefined,false);await delay(30);await drain(t,120);}
 
 /* -------------------------
- * Image pipeline
+ * Feature Report Reader (new addition)
  * ------------------------*/
-async function buildImageFrames(path,index=0){
-  L.info(`[IMG] Build ${path}`);const img=await Jimp.read(path);
-  if(img.bitmap.width!==DISPLAY_WIDTH||img.bitmap.height!==DISPLAY_HEIGHT){img.resize(DISPLAY_WIDTH,DISPLAY_HEIGHT);L.info(`[IMG] Resized ${DISPLAY_WIDTH}x${DISPLAY_HEIGHT}`);}
-  const frames=[],block=Buffer.alloc(64,0),BY=BYTES_PER_FRAME;let off=0,ptr=8;
-  function flush(){if(ptr===8)return;block[4]=BY;block[5]=off&0xff;block[6]=(off>>8)&0xff;block[7]=index&0xff;frames.push(Buffer.from(block.subarray(4,64)));off+=BY;ptr=8;block.fill(0,8);}
-  for(let y=0;y<DISPLAY_HEIGHT;y++)for(let x=0;x<DISPLAY_WIDTH;x++){const {r,g,b}=Jimp.intToRGBA(img.getPixelColor(x,y));const rgb=toRGB565(r,g,b);block[ptr++]=(rgb>>8)&0xff;block[ptr++]=rgb&0xff;if(ptr>=64)flush();}flush();L.info(`[IMG] Frames ${frames.length}`);return frames;
+function bcdToDec(b) { return ((b >> 4) & 0x0F) * 10 + (b & 0x0F); }
+
+function parseFeature05State(buf) {
+  if (!buf || buf.length < 64) return null;
+
+  const effect      = buf[5]  ?? 0;
+  const brightness  = buf[6]  ?? 0;
+  const speed       = buf[7]  ?? 0;
+  const orientation = buf[8]  ?? 0;
+  const rainbow     = buf[9]  ?? 0;
+  const red         = buf[10] ?? 0;
+  const green       = buf[11] ?? 0;
+  const blue        = buf[12] ?? 0;
+
+  const s = buf[43], m = buf[44], h = buf[45], day = buf[46], date = buf[47], month = buf[48], year = buf[49];
+
+  const rtc = {
+    sec: bcdToDec(s ?? 0),
+    min: bcdToDec(m ?? 0),
+    hour: bcdToDec(h ?? 0),
+    day: (day ?? 0) & 0x07,
+    date: bcdToDec(date ?? 0),
+    month: bcdToDec(month ?? 0),
+    year: 2000 + bcdToDec(year ?? 0),
+  };
+
+  return { underglow: { effect, brightness, speed, orientation, rainbow, hue: { red, green, blue } }, rtc };
 }
-async function sendFrames(t,f){
-  L.info(`[PIPE] ${f.length} frames`);
-  for(let i=0;i<f.length;i++){
-    const ok=await send(t,0x21,f[i],true);
-    if(!ok)L.warn(`[PIPE] frame ${i} fail`);
-    if(i>0&&(i%256)===0)L.info(`[PIPE] progress ${i}/${f.length}`);
-    await delay(40);  // ✅ CHANGED: 3→40ms to match original timing
-  }
-  L.info("[PIPE] done");
+
+function readStateViaFeatureReport(vendorId, productId) {
+  const h = new HID.HID(vendorId, productId);
+  const raw = Buffer.from(h.getFeatureReport(0x05, 64));
+  h.close();
+  return parseFeature05State(raw);
 }
 
-/* -------------------------
- * Init + Upload
- * ------------------------*/
-async function initializeDevice(t){await drain(t,150);await trySend(t,0x01,undefined,3);await delay(10);await trySend(t,0x23,undefined,3);await waitForReady(t,600);return true;}
-async function uploadImageToDevice(path,index=0){const t=openDevice();try{await resetDeviceState(t);await initializeDevice(t);const f=await buildImageFrames(path,index);await sendFrames(t,f);await trySend(t,0x02,undefined,2);L.info("[PIPE] Upload complete");return true;}finally{await releaseAndReattach(t);}}
-
-/* -------------------------
- * Safe release + reattach
- * ------------------------*/
-// Safely stop poll, release interface, reattach driver if supported, and close device
-async function releaseAndReattach(transport) {
-  const { epIn, iface, dev } = transport;
-
-  // 1) Stop the IN endpoint polling thread to avoid libusb teardown crashes
+async function readCurrentConfig() {
+  L.info("[CONFIG] Reading RGB + RTC via Feature Report 0x05...");
   try {
-    if (epIn && typeof epIn.stopPoll === "function") {
-      epIn.stopPoll();
-      console.log("[USB] IN endpoint polling stopped");
+    const st = readStateViaFeatureReport(VENDOR_ID, PRODUCT_ID);
+    if (!st) throw new Error("Empty report");
+    L.info(`[CONFIG] ✓ Parsed Feature Report: effect=${st.underglow.effect}, bright=${st.underglow.brightness}, speed=${st.underglow.speed}, rgb=(${st.underglow.hue.red},${st.underglow.hue.green},${st.underglow.hue.blue})`);
+    return {
+      underglow: st.underglow,
+      led: { mode: 0, saturation: 0, rainbow: st.underglow.rainbow, color: 0 },
+      rtc: st.rtc
+    };
+  } catch (e) {
+    L.error(`[CONFIG] Error reading Feature Report: ${e.message}`);
+    return null;
+  }
+}
+
+/* -------------------------
+ * RGB Presets
+ * ------------------------*/
+const RGB_PRESETS = {
+  white:{underglow:{effect:0,brightness:9,speed:0,orientation:0,rainbow:0,hue:{red:255,green:255,blue:255}},led:{mode:0,saturation:0,rainbow:0,color:7}},
+  relaxed:{underglow:{effect:5,brightness:3,speed:7,orientation:1,rainbow:0,hue:{red:0,green:255,blue:255}},led:{mode:3,saturation:3,rainbow:0,color:4}},
+  matrix:{underglow:{effect:15,brightness:7,speed:2,orientation:1,rainbow:0,hue:{red:0,green:255,blue:0}},led:{mode:3,saturation:7,rainbow:0,color:3}},
+  party:{underglow:{effect:12,brightness:9,speed:0,orientation:1,rainbow:1,hue:{red:255,green:255,blue:255}},led:{mode:1,saturation:9,rainbow:1,color:0}},
+  productivity:{underglow:{effect:6,brightness:4,speed:5,orientation:1,rainbow:0,hue:{red:255,green:255,blue:255}},led:{mode:3,saturation:5,rainbow:0,color:7}},
+  off:{underglow:{effect:0,brightness:0,speed:0,orientation:0,rainbow:0,hue:{red:0,green:0,blue:0}},led:{mode:0,saturation:0,rainbow:0,color:0}}
+};
+
+/* -------------------------
+ * Time Sync
+ * ------------------------*/
+function buildTimeSyncPayload(date = new Date(), rgbConfig = null) {
+  const payload = Buffer.alloc(60, 0x00);
+  payload[0x00] = 0x30;
+
+  if (rgbConfig && rgbConfig.underglow) {
+    const ug = rgbConfig.underglow;
+    payload[5] = ug.effect ?? 0;
+    payload[6] = ug.brightness ?? 9;
+    payload[7] = ug.speed ?? 0;
+    payload[8] = ug.orientation ?? 0;
+    payload[9] = ug.rainbow ?? 0;
+    if (ug.hue) {
+      payload[10] = ug.hue.red ?? 255;
+      payload[11] = ug.hue.green ?? 255;
+      payload[12] = ug.hue.blue ?? 255;
     }
-  } catch (e) {
-    console.warn("[USB] stopPoll error:", e.message);
   }
 
-  // 2) Release the claimed interface
-  try {
-    await new Promise((resolve) => iface.release(true, resolve)); // 'true' => close endpoints first
-    console.log("[USB] Interface released");
-  } catch (e) {
-    console.warn("[USB] release error:", e.message);
-  }
-
-  // 3) Try to re-attach kernel driver on this interface (may be a no-op on macOS)
-  try {
-    if (typeof iface.attachKernelDriver === "function") {
-      try {
-        iface.attachKernelDriver();
-        console.log("[USB] Kernel driver reattached on this interface");
-      } catch (e) {
-        // Many macOS HID stacks don't implement this; warn but continue.
-        console.warn("[USB] attachKernelDriver failed:", e.message);
-      }
-    }
-  } catch (e) {
-    console.warn("[USB] attachKernelDriver not available or errored:", e.message);
-  }
-
-  // 4) Close the device handle
-  try {
-    dev.close();
-    console.log("[USB] Device closed");
-  } catch (e) {
-    console.warn("[USB] dev.close error:", e.message);
-  }
+  payload[39] = toHexNum(date.getSeconds());
+  payload[40] = toHexNum(date.getMinutes());
+  payload[41] = toHexNum(date.getHours());
+  payload[42] = date.getDay();
+  payload[43] = toHexNum(date.getDate());
+  payload[44] = toHexNum(date.getMonth() + 1);
+  payload[45] = toHexNum(date.getFullYear() % 100);
+  payload[47] = 0xFF;
+  payload[48] = 0xFF;
+  return payload;
 }
 
+async function syncTime(date = new Date(), options = {}) {
+  const { rgbConfig: explicitConfig = null, preserveRgb = true } = options;
+  const t = openDevice();
+  try {
+    L.info("[TIME] Starting time sync...");
+    await resetDeviceState(t);
+    let rgbConfig = explicitConfig;
+    if (!rgbConfig) {
+      L.info("[TIME] No explicit RGB config provided, attempting to read via Feature Report...");
+      rgbConfig = await readCurrentConfig();
+      if (rgbConfig) L.info("[TIME] ✓ RGB config read via Feature Report");
+      else L.warn("[TIME] ⚠ Could not read RGB config via Feature Report");
+    }
+    if (preserveRgb && !rgbConfig) throw new Error("ABORTED: Cannot preserve RGB settings — no config read");
+    const payload = buildTimeSyncPayload(date, rgbConfig);
+    const success = await trySend(t, 0x06, payload, 3);
+    if (!success) {
+      L.error("[TIME] Failed to sync time");
+      return false;
+    }
+    L.info(`[TIME] ✓ Time synced: ${date.toLocaleString()}`);
+    return true;
+  } finally {
+    await releaseAndReattach(t);
+  }
+}
 
 /* -------------------------
- * Diagnostics
+ * Release & Diagnostics
  * ------------------------*/
-function printUsbTopology(){
-  const dev=usb.getDeviceList().find(d=>d.deviceDescriptor.idVendor===VENDOR_ID&&d.deviceDescriptor.idProduct===PRODUCT_ID);
-  if(!dev){console.log("No GMK87 device found.");return;}dev.open();
-  console.log("USB Interfaces:",dev.interfaces.length);
-  dev.interfaces.forEach((i,idx)=>{console.log(`Interface #${idx}:`);i.endpoints.forEach(ep=>console.log(` EP 0x${(ep.address&0xff).toString(16)} (${ep.direction}, type=${ep.transferType})`));});
-  try{dev.close();}catch{}
-}
+async function releaseAndReattach(transport){const {epIn,iface,dev}=transport;try{if(epIn&&typeof epIn.stopPoll==="function"){epIn.stopPoll();console.log("[USB] IN endpoint polling stopped");}}catch(e){console.warn("[USB] stopPoll error:",e.message);}try{await new Promise(r=>iface.release(true,r));console.log("[USB] Interface released");}catch(e){console.warn("[USB] release error:",e.message);}try{if(typeof iface.attachKernelDriver==="function"){try{iface.attachKernelDriver();console.log("[USB] Kernel driver reattached on this interface");}catch(e){console.warn("[USB] attachKernelDriver failed:",e.message);}}}catch(e){console.warn("[USB] attachKernelDriver not available:",e.message);}try{dev.close();console.log("[USB] Device closed");}catch(e){console.warn("[USB] dev.close error:",e.message);}} 
 
 /* -------------------------
  * Exports
  * ------------------------*/
-export{
-  VENDOR_ID,PRODUCT_ID,REPORT_ID,BYTES_PER_FRAME,DISPLAY_WIDTH,DISPLAY_HEIGHT,
-  delay,checksum,toRGB565,
-  printUsbTopology,openDevice,
-  send,trySend,waitForReady,resetDeviceState,
-  buildImageFrames,sendFrames,initializeDevice,uploadImageToDevice,
+export {
+  VENDOR_ID, PRODUCT_ID, REPORT_ID, BYTES_PER_FRAME, DISPLAY_WIDTH, DISPLAY_HEIGHT,
+  delay, checksum, toRGB565, toHexNum,
+  openDevice, send, trySend, waitForReady, resetDeviceState,
+  RGB_PRESETS, readCurrentConfig,
+  buildTimeSyncPayload, syncTime,
   releaseAndReattach
 };
