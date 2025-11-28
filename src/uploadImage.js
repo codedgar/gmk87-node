@@ -7,17 +7,22 @@
 import {
   openDevice,
   drainDevice,
-  resetDeviceState,
-  reviveDevice,
-  initializeDevice,
-  buildImageFrames,
-  sendFrames,
-  trySend,
+  buildRawImageData,
+  startUploadSession,
+  sendFrameData,
+  sendWithPosition,
   delay,
 } from "./lib/device.js";
 
+// Import OLD protocol functions for config
+import {
+  resetDeviceState,
+  initializeDevicePreservingLights,
+} from "./lib/device-legacy.js";
+
 /**
  * Main upload function - uploads two images to device slots 0 and 1
+ * NOW USES READ-MODIFY-WRITE: Preserves existing lighting and LED settings during upload
  * Performs full device initialization and uploads both images sequentially
  * Uses hardcoded image paths: "nyan.bmp" for slot 0, "encoded-rgb555.bmp" for slot 1
  * @returns {Promise<void>} Resolves when both uploads complete successfully
@@ -27,33 +32,44 @@ async function main() {
   let device = openDevice();
 
   console.log("Clearing device buffer...");
-  const stale = await drainDevice(device);
+  const stale = await drainDevice(device, 500);
   if (stale.length > 0) {
     console.log(`  Drained ${stale.length} stale messages`);
   }
 
+  await delay(200); // Let device settle
+
+  console.log("Starting image upload...");
+
+  // Build raw image data (matches Python's encode_frame - 32KB padded per image)
+  console.log("\n=== Building raw image data ===");
+  const imageData0 = await buildRawImageData("nyan.bmp");
+  const imageData1 = await buildRawImageData("encoded-rgb555.bmp");
+  console.log(`Image 0: ${imageData0.length} bytes`);
+  console.log(`Image 1: ${imageData1.length} bytes`);
+
+  // CONCATENATE both images like Python does (lines 428-432 in reference.py)
+  const concatenatedData = Buffer.concat([imageData0, imageData1]);
+  console.log(`Total concatenated: ${concatenatedData.length} bytes\n`);
+
+  // Reset device state (OLD protocol)
   await resetDeviceState(device);
 
-  console.log("Starting image upload with ACK verification...");
+  // Initialize device using OLD protocol WITH lighting preservation
+  console.log("=== Initializing device with OLD protocol (preserving lights) ===");
+  device = await initializeDevicePreservingLights(device, 1); // shownImage=1 (show slot 0)
 
-  // Initialize device (shownImage=2 means show slot 1 after upload)
-  device = await initializeDevice(device, 2);
+  console.log("Waiting for device to be ready...");
+  await delay(1000);
 
-  // Upload first image to slot 0
-  console.log("\n=== Uploading Image to slot 0 ===");
-  const frames0 = await buildImageFrames("nyan.bmp", 0);
-  await sendFrames(device, frames0, "Image slot 0");
+  // Upload BOTH images in ONE session using Python protocol
+  console.log("\n=== Uploading both images (Python protocol) ===");
+  await startUploadSession(device);
+  await sendFrameData(device, concatenatedData, "both slots");
 
-  await delay(100);
-
-  // Upload second image to slot 1
-  console.log("\n=== Uploading Image to slot 1 ===");
-  const frames1 = await buildImageFrames("encoded-rgb555.bmp", 1);
-  await sendFrames(device, frames1, "Image slot 1");
-
-  // Final commit
-  const success = await trySend(device, 0x02);
-  if (!success) console.warn("Final COMMIT may not have been acknowledged");
+  console.log("\n=== Upload Commit ===");
+  const response = await sendWithPosition(device, 0x02, Buffer.alloc(0), 0);
+  if (!response) console.warn("Upload COMMIT may not have been acknowledged");
 
   console.log("\n✓ Upload complete!");
   device.close();

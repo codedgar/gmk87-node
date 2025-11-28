@@ -38,13 +38,8 @@ function printConfig(label, config) {
   console.log(`  🕐 Time: ${config.time.hour}:${config.time.minute}:${config.time.second}\n`);
 }
 
-async function readConfig() {
-  const device = openDevice();
-  try {
-    return parseConfigBuffer(await readConfigFromDevice(device));
-  } finally {
-    device.close();
-  }
+async function readConfig(device) {
+  return parseConfigBuffer(await readConfigFromDevice(device));
 }
 
 async function demo() {
@@ -58,12 +53,20 @@ async function demo() {
   console.log("╚═══════════════════════════════════════════════════════════╝");
   console.log(colors.reset);
 
+  let device;
   try {
+    // Open device ONCE for entire demo
+    console.log("Opening device connection...");
+    device = openDevice();
+    console.log("✓ Device connected");
+    console.log("Waiting for device to be ready...\n");
+    await delay(2000); // Give device time to initialize
+
     // ============================================================
     // STEP 0: Show initial state
     // ============================================================
     printHeader("Initial Configuration", 0);
-    const config0 = await readConfig();
+    const config0 = await readConfig(device);
     printConfig("Current settings:", config0);
     await delay(2000);
 
@@ -86,16 +89,16 @@ async function demo() {
           blue: 0xff, // Blue
         },
       },
-    });
+    }, device);
 
     console.log(`\n${colors.green}✓ Lighting configured${colors.reset}`);
     console.log(`${colors.yellow}⏳ Check your keyboard - it should be breathing BLUE${colors.reset}`);
     await delay(3000);
 
     console.log("Waiting for keyboard to settle before reading back...");
-    await delay(500);
+    await delay(1000);
 
-    const config1 = await readConfig();
+    const config1 = await readConfig(device);
     printConfig("After lighting change:", config1);
 
     // Verify
@@ -125,16 +128,16 @@ async function demo() {
         mode: 0x03, // FIXED_COLOR
         color: 0x06, // PURPLE
       },
-    });
+    }, device);
 
     console.log(`\n${colors.green}✓ LED configured${colors.reset}`);
     console.log(`${colors.yellow}⏳ Check: Underglow should STILL be breathing blue, LED now purple${colors.reset}`);
     await delay(3000);
 
     console.log("Waiting for keyboard to settle before reading back...");
-    await delay(500);
+    await delay(1000);
 
-    const config2 = await readConfig();
+    const config2 = await readConfig(device);
     printConfig("After LED change:", config2);
 
     // Verify
@@ -159,7 +162,7 @@ async function demo() {
     console.log("Syncing time to current system time");
     console.log("Expected: Time updates, underglow STILL blue breathing, LED STILL purple\n");
 
-    await syncTime();
+    await syncTime(new Date(), device);
 
     console.log(`\n${colors.green}✓ Time synchronized${colors.reset}`);
     console.log(`${colors.yellow}⏳ Check: Underglow blue, LED purple should BOTH still be active${colors.reset}`);
@@ -168,7 +171,7 @@ async function demo() {
     console.log("Waiting for keyboard to settle before reading back...");
     await delay(1000);
 
-    const config3 = await readConfig();
+    const config3 = await readConfig(device);
     printConfig("After time sync:", config3);
 
     // Verify time changed
@@ -208,7 +211,7 @@ async function demo() {
         speed: 3,
         rainbow: 1,
       },
-    });
+    }, device);
 
     console.log(`\n${colors.green}✓ Underglow changed to rainbow cycle${colors.reset}`);
     console.log(`${colors.yellow}⏳ Check: Should see rainbow cycling, LED still purple${colors.reset}`);
@@ -217,7 +220,7 @@ async function demo() {
     console.log("Waiting for keyboard to settle before reading back...");
     await delay(1000);
 
-    const config4 = await readConfig();
+    const config4 = await readConfig(device);
     printConfig("Final configuration:", config4);
 
     if (config4.underglow.effect === 0x0b && config4.underglow.brightness === 7) {
@@ -254,6 +257,16 @@ async function demo() {
     console.error(`\n${colors.yellow}❌ Demo failed:${colors.reset}`);
     console.error(error.message);
     console.error(error.stack);
+  } finally {
+    if (device) {
+      try {
+        console.log("\nClosing device connection...");
+        device.close();
+        console.log("✓ Device closed");
+      } catch (err) {
+        console.log("Device already closed");
+      }
+    }
   }
 }
 
