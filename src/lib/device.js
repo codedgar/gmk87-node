@@ -285,6 +285,230 @@ async function trySend(device, cmd, payload = undefined, tries = 3) {
 }
 
 // -------------------------------------------------------
+// Python-Compatible Protocol Functions
+// -------------------------------------------------------
+
+/**
+ * Sends a command using the Python/USB protocol format (with length and position metadata)
+ * This matches the reference.py implementation exactly
+ * @param {HID.HID} device - Connected HID device
+ * @param {number} commandId - Command byte (1-255)
+ * @param {Buffer} data - Data payload (max 56 bytes)
+ * @param {number} [pos=0] - Position offset (24-bit)
+ * @returns {Promise<Buffer|null>} Response data from byte 4 onwards, or null if failed
+ */
+async function sendWithPosition(device, commandId, data, pos = 0) {
+  if (commandId < 1 || commandId > 0xff) {
+    throw new Error("Command ID must be between 1 and 255");
+  }
+  if (data.length > 56) {
+    throw new Error("Data payload cannot exceed 56 bytes");
+  }
+
+  // Add delay before command 2 (like Python does)
+  if (commandId === 2) {
+    await delay(100);
+  }
+
+  const buffer = Buffer.alloc(64, 0x00);
+  buffer[0] = 0x04;               // Report ID
+  buffer[3] = commandId;          // Command
+  buffer[4] = data.length;        // Data length
+  buffer[5] = pos & 0xff;         // Position LSB
+  buffer[6] = (pos >> 8) & 0xff;  // Position mid byte
+  buffer[7] = (pos >> 16) & 0xff; // Position MSB
+
+  // Copy data starting at byte 8
+  data.copy(buffer, 8);
+
+  // Calculate checksum of bytes 3-63
+  const chk = checksum(buffer);
+  buffer[1] = chk & 0xff;
+  buffer[2] = (chk >> 8) & 0xff;
+
+  device.write([...buffer]);
+
+  // Wait for response
+  const response = await readResponse(device, 150);
+  if (!response) {
+    return null;
+  }
+
+  // Check if response header matches (bytes 0-2: report ID + checksum)
+  if (response[0] === buffer[0] &&
+      response[1] === buffer[1] &&
+      response[2] === buffer[2]) {
+    // Return data from byte 4 onwards (like Python does)
+    return response.slice(4);
+  }
+
+  return null;
+}
+
+/**
+ * Reads the current configuration from the device using Python protocol
+ * @param {HID.HID} device - Connected HID device
+ * @returns {Promise<Buffer>} 48-byte configuration buffer
+ * @throws {Error} If reading fails
+ */
+async function readConfigFromDevice(device) {
+  console.log("Reading configuration using Python protocol...");
+
+  // Step 1: Init command
+  await sendWithPosition(device, 0x01, Buffer.alloc(0), 0);
+
+  // Step 2: Send command 0x03 (prepare read) - 9 times for 4-byte chunks
+  for (let i = 0; i < 9; i++) {
+    await sendWithPosition(device, 0x03, Buffer.alloc(4, 0x00), i * 4);
+  }
+  // Final prep for byte 36
+  await sendWithPosition(device, 0x03, Buffer.alloc(1, 0x00), 36);
+
+  // Step 3: Commit
+  await sendWithPosition(device, 0x02, Buffer.alloc(0), 0);
+
+  // Step 4: Read configuration in 12 chunks of 4 bytes using command 0x05
+  const configBuffer = Buffer.alloc(48, 0x00);
+
+  for (let i = 0; i < 12; i++) {
+    const position = i * 4;
+    const chunk = await sendWithPosition(device, 0x05, Buffer.alloc(4, 0x00), position);
+
+    if (chunk && chunk.length >= 4) {
+      // Chunk contains response data (already sliced from byte 4)
+      chunk.slice(0, 4).copy(configBuffer, position);
+    } else {
+      console.warn(`Failed to read config chunk ${i} at position ${position}`);
+    }
+  }
+
+  console.log(`✓ Configuration read (48 bytes): ${configBuffer.toString('hex')}`);
+  return configBuffer;
+}
+
+/**
+ * Parses 48-byte config buffer into structured object
+ * @param {Buffer} configBuffer - 48-byte configuration
+ * @returns {Object} Parsed configuration
+ */
+function parseConfigBuffer(configBuffer) {
+  return {
+    underglow: {
+      effect: configBuffer[1],
+      brightness: configBuffer[2],
+      speed: configBuffer[3],
+      orientation: configBuffer[4],
+      rainbow: configBuffer[5],
+      hue: {
+        red: configBuffer[6],
+        green: configBuffer[7],
+        blue: configBuffer[8],
+      },
+    },
+    winlock: configBuffer[21],
+    led: {
+      mode: configBuffer[28],
+      saturation: configBuffer[29],
+      rainbow: configBuffer[31],
+      color: configBuffer[32],
+    },
+    showImage: configBuffer[33],
+    image1Frames: configBuffer[34],
+    time: {
+      second: configBuffer[35],
+      minute: configBuffer[36],
+      hour: configBuffer[37],
+      dayOfWeek: configBuffer[38],
+      date: configBuffer[39],
+      month: configBuffer[40],
+      year: configBuffer[41],
+    },
+    frameDuration: configBuffer[43] | (configBuffer[44] << 8),
+    image2Frames: configBuffer[46],
+    _raw: configBuffer,
+  };
+}
+
+/**
+ * Builds 48-byte config buffer from existing config + changes
+ * @param {Object} existingConfig - Current config (from parseConfigBuffer)
+ * @param {Object} changes - Changes to apply
+ * @returns {Buffer} Updated 48-byte configuration buffer
+ */
+function buildConfigBuffer(existingConfig, changes) {
+  const buffer = Buffer.from(existingConfig._raw);
+
+  // Apply underglow changes
+  if (changes.underglow) {
+    if (changes.underglow.effect !== undefined) buffer[1] = changes.underglow.effect;
+    if (changes.underglow.brightness !== undefined) buffer[2] = changes.underglow.brightness;
+    if (changes.underglow.speed !== undefined) buffer[3] = changes.underglow.speed;
+    if (changes.underglow.orientation !== undefined) buffer[4] = changes.underglow.orientation;
+    if (changes.underglow.rainbow !== undefined) buffer[5] = changes.underglow.rainbow;
+    if (changes.underglow.hue) {
+      if (changes.underglow.hue.red !== undefined) buffer[6] = changes.underglow.hue.red;
+      if (changes.underglow.hue.green !== undefined) buffer[7] = changes.underglow.hue.green;
+      if (changes.underglow.hue.blue !== undefined) buffer[8] = changes.underglow.hue.blue;
+    }
+  }
+
+  // Apply other changes
+  if (changes.winlock !== undefined) buffer[21] = changes.winlock;
+
+  if (changes.led) {
+    if (changes.led.mode !== undefined) buffer[28] = changes.led.mode;
+    if (changes.led.saturation !== undefined) buffer[29] = changes.led.saturation;
+    if (changes.led.rainbow !== undefined) buffer[31] = changes.led.rainbow;
+    if (changes.led.color !== undefined) buffer[32] = changes.led.color;
+  }
+
+  if (changes.showImage !== undefined) buffer[33] = changes.showImage;
+  if (changes.image1Frames !== undefined) buffer[34] = changes.image1Frames;
+  if (changes.image2Frames !== undefined) buffer[46] = changes.image2Frames;
+
+  // Update time if requested
+  if (changes.time) {
+    const now = new Date();
+    buffer[35] = toHexNum(now.getSeconds());
+    buffer[36] = toHexNum(now.getMinutes());
+    buffer[37] = toHexNum(now.getHours());
+    buffer[38] = now.getDay();
+    buffer[39] = toHexNum(now.getDate());
+    buffer[40] = toHexNum(now.getMonth() + 1);
+    buffer[41] = toHexNum(now.getFullYear() % 100);
+  }
+
+  if (changes.frameDuration !== undefined) {
+    buffer[43] = changes.frameDuration & 0xff;
+    buffer[44] = (changes.frameDuration >> 8) & 0xff;
+  }
+
+  return buffer;
+}
+
+/**
+ * Writes config buffer to device using Python protocol
+ * @param {HID.HID} device - Connected HID device
+ * @param {Buffer} configBuffer - 48-byte configuration to write
+ * @returns {Promise<boolean>} True if successful
+ */
+async function writeConfigToDevice(device, configBuffer) {
+  console.log("Writing configuration using Python protocol...");
+
+  // Step 1: Init
+  await sendWithPosition(device, 0x01, Buffer.alloc(0), 0);
+
+  // Step 2: Write config using command 0x06
+  await sendWithPosition(device, 0x06, configBuffer, 0);
+
+  // Step 3: Commit
+  await sendWithPosition(device, 0x02, Buffer.alloc(0), 0);
+
+  console.log("✓ Configuration written successfully");
+  return true;
+}
+
+// -------------------------------------------------------
 // Wait-until-ready logic
 // -------------------------------------------------------
 
@@ -841,59 +1065,29 @@ async function trySendLightingFrame(device, frameData, tries = 3) {
 
 /**
  * Complete pipeline to configure lighting on the GMK87 device
- * Handles device connection, buffer draining, device reset, revival if needed,
- * and sends lighting configuration with acknowledgment checking and retries
- * @param {Object} config - Lighting configuration object (see buildLightingFrame for structure)
+ * NOW USES READ-MODIFY-WRITE: Reads current config, modifies only requested fields, writes back
+ * @param {Object} changes - Lighting configuration changes to apply
  * @returns {Promise<boolean>} True if configuration was successfully applied
  * @throws {Error} If device connection fails or configuration cannot be applied
  */
-async function configureLighting(config) {
+async function configureLighting(changes) {
   let device = openDevice();
 
   try {
-    // -------------------------------------------------------
-    // Step 1: Drain device buffer
-    // -------------------------------------------------------
-    console.log("Clearing device buffer...");
-    const stale = await drainDevice(device);
-    if (stale.length > 0) {
-      console.log(`  Drained ${stale.length} stale messages`);
-    }
+    console.log("Reading current configuration...");
+    const currentConfig = parseConfigBuffer(await readConfigFromDevice(device));
 
-    // -------------------------------------------------------
-    // Step 2: Reset device state
-    // -------------------------------------------------------
-    await resetDeviceState(device);
+    console.log("Current settings:");
+    console.log(`  Underglow: effect=${currentConfig.underglow.effect}, brightness=${currentConfig.underglow.brightness}`);
+    console.log(`  LED: mode=${currentConfig.led.mode}, color=${currentConfig.led.color}`);
+    console.log(`  Images: slot0=${currentConfig.image1Frames}, slot1=${currentConfig.image2Frames}`);
 
-    // -------------------------------------------------------
-    // Step 3: Check device responsiveness (revive if needed)
-    // -------------------------------------------------------
-    let success = await trySend(device, 0x01, undefined, 1);
-    if (!success) {
-      console.log("Device not responding, attempting revival...");
-      const revived = await reviveDevice(device);
-      if (!revived) {
-        throw new Error("Device could not be revived.");
-      }
-      device = revived;
-    }
+    console.log("\nApplying changes (preserving other settings)...");
+    const newConfig = buildConfigBuffer(currentConfig, changes);
 
-    // -------------------------------------------------------
-    // Step 4: Build and send lighting configuration frame with ACK checking and retries
-    // -------------------------------------------------------
-    console.log("Building lighting configuration frame...");
-    const frame = buildLightingFrame(config);
-
-    console.log("Sending lighting configuration with acknowledgment checking...");
-    success = await trySendLightingFrame(device, frame, 3);
-
-    if (!success) {
-      console.warn("⚠ Lighting configuration may not have been acknowledged by device");
-      return false;
-    }
+    await writeConfigToDevice(device, newConfig);
 
     console.log("✓ Lighting configuration applied successfully!");
-    await delay(100);
     return true;
   } finally {
     try {
@@ -904,12 +1098,12 @@ async function configureLighting(config) {
 
 /**
  * Syncs time to the keyboard
+ * NOW USES READ-MODIFY-WRITE: Preserves all other settings
  * @param {Date} [date=new Date()] - Date object to sync
  * @returns {Promise<boolean>} True if time sync was successful
  */
 async function syncTime(date = new Date()) {
-  // Use configureLighting with minimal config (only time fields will be set)
-  return await configureLighting({});
+  return await configureLighting({ time: true });
 }
 
 /**
@@ -957,6 +1151,12 @@ export {
   readResponse,
   waitForReady,
   sendConfigFrame,
+  // Python-Compatible Protocol (NEW)
+  sendWithPosition,
+  readConfigFromDevice,
+  parseConfigBuffer,
+  buildConfigBuffer,
+  writeConfigToDevice,
   // Device State Management
   resetDeviceState,
   reviveDevice,
