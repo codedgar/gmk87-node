@@ -980,12 +980,7 @@ async function uploadImageToDevice(imagePath, imageIndex = 0, options = {}) {
     }
 
     // -------------------------------------------------------
-    // Step 3: Reset device state
-    // -------------------------------------------------------
-    await resetDeviceState(device);
-
-    // -------------------------------------------------------
-    // Step 4: Build image frames FIRST (to know frame count)
+    // Step 3: Build image frames FIRST (to know frame count)
     // -------------------------------------------------------
     console.log(`Building frames for slot ${imageIndex}...`);
     const frames = await buildImageFrames(imagePath, imageIndex);

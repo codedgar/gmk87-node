@@ -624,12 +624,7 @@ async function initializeDevice(device, shownImage = 0) {
   console.log("Initializing device with ACK handshake...");
 
   let success = await trySend(device, 0x01);
-  if (!success) {
-    console.warn("No INIT ACK — trying soft revive...");
-    const revived = await reviveDevice(device);
-    if (!revived) throw new Error("Device could not be revived.");
-    device = revived;
-  }
+  if (!success) throw new Error("Device not responding to 1st INIT!");
   await delay(3);
 
   success = await trySend(device, 0x01);
@@ -649,7 +644,7 @@ async function initializeDevice(device, shownImage = 0) {
 
   await waitForReady(device);
 
-  return device; // Return potentially revived device
+  return device;
 }
 
 /**
@@ -660,12 +655,7 @@ async function initializeDevicePreservingLights(device, shownImage = 0) {
   console.log("Initializing device with lighting preservation...");
 
   let success = await trySend(device, 0x01);
-  if (!success) {
-    console.warn("No INIT ACK — trying soft revive...");
-    const revived = await reviveDevice(device);
-    if (!revived) throw new Error("Device could not be revived.");
-    device = revived;
-  }
+  if (!success) throw new Error("Device not responding to 1st INIT!");
   await delay(3);
 
   success = await trySend(device, 0x01);
@@ -936,21 +926,11 @@ async function configureLighting(config) {
     }
 
     // -------------------------------------------------------
-    // Step 2: Reset device state
-    // -------------------------------------------------------
-    await resetDeviceState(device);
-
-    // -------------------------------------------------------
-    // Step 3: Check device responsiveness (revive if needed)
+    // Step 2: Check device responsiveness
     // -------------------------------------------------------
     let success = await trySend(device, 0x01, undefined, 1);
     if (!success) {
-      console.log("Device not responding, attempting revival...");
-      const revived = await reviveDevice(device);
-      if (!revived) {
-        throw new Error("Device could not be revived.");
-      }
-      device = revived;
+      throw new Error("Device not responding to INIT!");
     }
 
     // -------------------------------------------------------

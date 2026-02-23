@@ -8,7 +8,6 @@ import {
   openDevice,
   drainDevice,
   buildRawImageData,
-  startUploadSession,
   sendFrameData,
   sendWithPosition,
   delay,
@@ -16,7 +15,6 @@ import {
 
 // Import OLD protocol functions for config
 import {
-  resetDeviceState,
   initializeDevicePreservingLights,
 } from "./lib/device-legacy.js";
 
@@ -52,9 +50,6 @@ async function main() {
   const concatenatedData = Buffer.concat([imageData0, imageData1]);
   console.log(`Total concatenated: ${concatenatedData.length} bytes\n`);
 
-  // Reset device state (OLD protocol)
-  await resetDeviceState(device);
-
   // Initialize device using OLD protocol WITH lighting preservation
   console.log("=== Initializing device with OLD protocol (preserving lights) ===");
   device = await initializeDevicePreservingLights(device, 1); // shownImage=1 (show slot 0)
@@ -62,9 +57,9 @@ async function main() {
   console.log("Waiting for device to be ready...");
   await delay(1000);
 
-  // Upload BOTH images in ONE session using Python protocol
-  console.log("\n=== Uploading both images (Python protocol) ===");
-  await startUploadSession(device);
+  // Upload BOTH images in ONE session
+  // Note: initializeDevicePreservingLights already sent 0x23 (READY) to start the upload session
+  console.log("\n=== Uploading both images ===");
   await sendFrameData(device, concatenatedData, "both slots");
 
   console.log("\n=== Upload Commit ===");
