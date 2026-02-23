@@ -1,7 +1,7 @@
 {
   "presets": {
     "gaming": {
-      "description": "Aggressive red theme with fast effects, Windows key locked",
+      "description": "Aggressive red theme with fast effects",
       "config": {
         "underglow": {
           "effect": 5,
@@ -21,7 +21,7 @@
           "rainbow": 0,
           "color": 0
         },
-        "winlock": 1,
+        "winlock": 0,
         "showImage": 0
       }
     },

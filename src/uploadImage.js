@@ -10,19 +10,18 @@ import {
   buildRawImageData,
   sendFrameData,
   sendWithPosition,
+  readConfigFromDevice,
+  parseConfigBuffer,
+  buildConfigBuffer,
+  writeConfigToDevice,
+  waitForReady,
   delay,
 } from "./lib/device.js";
 
-// Import OLD protocol functions for config
-import {
-  initializeDevicePreservingLights,
-} from "./lib/device-legacy.js";
-
 /**
  * Main upload function - uploads two images to device slots 0 and 1
- * NOW USES READ-MODIFY-WRITE: Preserves existing lighting and LED settings during upload
- * Performs full device initialization and uploads both images sequentially
- * Uses hardcoded image paths: "nyan.bmp" for slot 0, "encoded-rgb555.bmp" for slot 1
+ * Uses NEW protocol throughout: read-modify-write preserves ALL config bytes
+ * Matches sniffed sequence: INIT → INIT → CONFIG → COMMIT → READY → FRAME_DATA → COMMIT
  * @returns {Promise<void>} Resolves when both uploads complete successfully
  * @throws {Error} If device initialization fails or upload encounters errors
  */
@@ -46,19 +45,42 @@ async function main() {
   console.log(`Image 0: ${imageData0.length} bytes`);
   console.log(`Image 1: ${imageData1.length} bytes`);
 
-  // CONCATENATE both images like Python does (lines 428-432 in reference.py)
   const concatenatedData = Buffer.concat([imageData0, imageData1]);
   console.log(`Total concatenated: ${concatenatedData.length} bytes\n`);
 
-  // Initialize device using OLD protocol WITH lighting preservation
-  console.log("=== Initializing device with OLD protocol (preserving lights) ===");
-  device = await initializeDevicePreservingLights(device, 1); // shownImage=1 (show slot 0)
+  // === Read current config (preserves ALL bytes including unknown ones) ===
+  console.log("=== Reading current config ===");
+  const configBuffer = await readConfigFromDevice(device);
+  const currentConfig = parseConfigBuffer(configBuffer);
+  console.log(`  Underglow: effect=${currentConfig.underglow.effect}, brightness=${currentConfig.underglow.brightness}`);
+  console.log(`  LED: mode=${currentConfig.led.mode}, color=${currentConfig.led.color}`);
 
-  console.log("Waiting for device to be ready...");
-  await delay(1000);
+  // === Build new config: only change showImage + frame counts ===
+  const newConfig = buildConfigBuffer(currentConfig, {
+    showImage: 1,       // show slot 0 after upload
+    image1Frames: 1,
+    image2Frames: 1,
+    time: true,         // sync time while we're at it
+  });
 
-  // Upload BOTH images in ONE session
-  // Note: initializeDevicePreservingLights already sent 0x23 (READY) to start the upload session
+  // === Upload sequence matching sniffed protocol ===
+  // INIT → INIT → CONFIG(0x06) → COMMIT → READY(0x23) → FRAME_DATA × N → COMMIT
+  console.log("\n=== Initializing upload (new protocol) ===");
+
+  // Two INITs as sniffed captures show
+  await sendWithPosition(device, 0x01, Buffer.alloc(0), 0);
+  await sendWithPosition(device, 0x01, Buffer.alloc(0), 0);
+
+  // CONFIG — write full config preserving all lighting
+  await sendWithPosition(device, 0x06, newConfig, 0);
+
+  // COMMIT
+  await sendWithPosition(device, 0x02, Buffer.alloc(0), 0);
+
+  // READY — start upload session
+  await sendWithPosition(device, 0x23, Buffer.alloc(0), 0);
+  await waitForReady(device);
+
   console.log("\n=== Uploading both images ===");
   await sendFrameData(device, concatenatedData, "both slots");
 

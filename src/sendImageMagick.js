@@ -102,31 +102,39 @@ function magickConvert(inPath, outPath) {
 export async function processAndSend(
   imagePath,
   imageIndex = 0,
-  { showAfter = true } = {}
+  { showAfter = true, slot0File, slot1File } = {}
 ) {
-  if (!imagePath || typeof imagePath !== "string")
-    throw new Error("imagePath is required");
-  if (!fs.existsSync(imagePath))
-    throw new Error(`Input file not found: ${imagePath}`);
-  if (imageIndex !== 0 && imageIndex !== 1)
-    throw new Error("Slot must be 0 or 1");
+  // Convert all provided images to BMP with ImageMagick
+  const tmpFiles = [];
 
-  const tmp = path.join(
-    os.tmpdir(),
-    `gmk87-prepped-${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2)}.bmp`
-  );
+  function convertToTmp(inputPath) {
+    if (!inputPath) return null;
+    if (!fs.existsSync(inputPath))
+      throw new Error(`Input file not found: ${inputPath}`);
+    const tmp = path.join(
+      os.tmpdir(),
+      `gmk87-prepped-${Date.now()}-${Math.random().toString(36).slice(2)}.bmp`
+    );
+    console.log(`Converting ${path.basename(inputPath)} with ImageMagick...`);
+    magickConvert(inputPath, tmp);
+    tmpFiles.push(tmp);
+    return tmp;
+  }
 
   try {
-    console.log("Converting image with ImageMagick...");
-    magickConvert(imagePath, tmp);
+    // If both slots provided, convert both
+    const tmp0 = convertToTmp(slot0File || (imageIndex === 0 ? imagePath : null));
+    const tmp1 = convertToTmp(slot1File || (imageIndex === 1 ? imagePath : null));
 
-    await uploadImageToDevice(tmp, imageIndex, { showAfter });
+    await uploadImageToDevice(imagePath, imageIndex, {
+      showAfter,
+      slot0Path: tmp0,
+      slot1Path: tmp1,
+    });
   } finally {
-    try {
-      fs.unlinkSync(tmp);
-    } catch {}
+    for (const tmp of tmpFiles) {
+      try { fs.unlinkSync(tmp); } catch {}
+    }
   }
 }
 
@@ -136,24 +144,47 @@ export async function processAndSend(
 
 /**
  * Main entry point when script is run directly from command line
- * Usage: node sendImageMagick.js --file <path> --slot <0|1> [--show=true|false]
+ * Usage:
+ *   node sendImageMagick.js --slot0 <path> --slot1 <path> [--show <0|1|2>]
+ *   node sendImageMagick.js --file <path> --slot <0|1> [--show=true|false]
  */
 if (import.meta.url === `file://${process.argv[1]}`) {
   const args = parseArgs(process.argv);
-  const file = args.file || args.f;
-  const slot = Number(args.slot ?? 0);
-  const show =
-    args.show === undefined ? true : String(args.show).toLowerCase() !== "false";
 
-  if (!file || Number.isNaN(slot) || slot < 0 || slot > 1) {
-    console.error(
-      "Usage: node src/sendImageMagick.js --file <path> --slot <0|1> [--show=true|false]"
-    );
-    process.exit(1);
+  // Two-file mode: --slot0 <path> --slot1 <path>
+  if (args.slot0 || args.slot1) {
+    const show = Number(args.show ?? (args.slot1 ? 2 : 1));
+
+    if (!args.slot0 && !args.slot1) {
+      console.error("Provide at least one of --slot0 or --slot1");
+      process.exit(1);
+    }
+
+    processAndSend(args.slot0 || args.slot1, args.slot0 ? 0 : 1, {
+      showAfter: show > 0,
+      slot0File: args.slot0,
+      slot1File: args.slot1,
+    }).catch((err) => {
+      console.error(err);
+      process.exit(1);
+    });
+  } else {
+    // Single-file mode (backwards compatible): --file <path> --slot <0|1>
+    const file = args.file || args.f;
+    const slot = Number(args.slot ?? 0);
+    const show =
+      args.show === undefined ? true : String(args.show).toLowerCase() !== "false";
+
+    if (!file || Number.isNaN(slot) || slot < 0 || slot > 1) {
+      console.error(
+        "Usage:\n  node src/sendImageMagick.js --slot0 <path> --slot1 <path>\n  node src/sendImageMagick.js --file <path> --slot <0|1>"
+      );
+      process.exit(1);
+    }
+
+    processAndSend(file, slot, { showAfter: show }).catch((err) => {
+      console.error(err);
+      process.exit(1);
+    });
   }
-
-  processAndSend(file, slot, { showAfter: show }).catch((err) => {
-    console.error(err);
-    process.exit(1);
-  });
 }
