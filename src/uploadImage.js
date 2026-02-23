@@ -14,7 +14,6 @@ import {
   parseConfigBuffer,
   buildConfigBuffer,
   writeConfigToDevice,
-  waitForReady,
   delay,
 } from "./lib/device.js";
 
@@ -77,9 +76,8 @@ async function main() {
   // COMMIT
   await sendWithPosition(device, 0x02, Buffer.alloc(0), 0);
 
-  // READY — start upload session
+  // READY — start upload session (ACK from sendWithPosition confirms device is ready)
   await sendWithPosition(device, 0x23, Buffer.alloc(0), 0);
-  await waitForReady(device);
 
   console.log("\n=== Uploading both images ===");
   await sendFrameData(device, concatenatedData, "both slots");

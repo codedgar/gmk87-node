@@ -831,7 +831,6 @@ async function uploadImageToDevice(imagePath, imageIndex = 0, options = {}) {
     await sendWithPosition(device, 0x06, newConfig, 0);
     await sendWithPosition(device, 0x02, Buffer.alloc(0), 0);
     await sendWithPosition(device, 0x23, Buffer.alloc(0), 0);
-    await waitForReady(device);
 
     // Step 6: Send both slots as one continuous stream
     console.log("Uploading image data...");
