@@ -66,7 +66,7 @@ Options:
 - `--ms <number>` — Animation delay in milliseconds (min 60, default 100 for GIFs)
 - `--show` — Which slot to display after upload (default: last uploaded)
 
-Images and GIF frames are automatically extracted, converted, and resized to 240x135 via ImageMagick. The total number of frames across both slots must not exceed 90.
+Images and GIF frames are automatically extracted, converted, and resized to 240x135 via ImageMagick. The total number of frames across both slots must not exceed 36.
 
 ### Configure lighting
 
@@ -113,6 +113,61 @@ npm run timesync
 
 All commands use read-modify-write to preserve existing settings.
 
+## API
+
+Import `src/api.js` to use the keyboard programmatically from your own project:
+
+```js
+import gmk87 from "./src/api.js";
+// or: import { uploadImage, setLighting, showSlot, syncTime, readConfig, getKeyboardInfo } from "./src/api.js";
+```
+
+### Upload images
+
+```js
+// Static images to both slots
+await gmk87.uploadImage("cat.png", 0, { slot0File: "cat.png", slot1File: "dog.jpg" });
+
+// GIF to slot 0 (frames extracted automatically, max 36 total across both slots)
+await gmk87.uploadImage("anim.gif", 0, { slot0File: "anim.gif", frameDuration: 100 });
+
+// GIFs to both slots
+await gmk87.uploadImage("a.gif", 0, { slot0File: "a.gif", slot1File: "b.gif", frameDuration: 150 });
+```
+
+### Change lighting
+
+```js
+// Underglow
+await gmk87.setLighting({ underglow: { effect: 5, brightness: 7, hue: { red: 255, green: 0, blue: 128 } } });
+
+// LED keys (color: 0=red, 1=orange, 2=yellow, 3=green, 4=teal, 5=blue, 6=purple, 7=white, 8=off)
+await gmk87.setLighting({ led: { mode: 3, color: 5 } });
+```
+
+### Switch displayed slot
+
+```js
+await gmk87.showSlot(0); // show time
+await gmk87.showSlot(1); // show slot 0
+await gmk87.showSlot(2); // show slot 1
+```
+
+### Sync time & read config
+
+```js
+await gmk87.syncTime();
+
+const config = await gmk87.readConfig();
+console.log(config.underglow);     // { effect, brightness, speed, orientation, rainbow, hue }
+console.log(config.led);           // { mode, saturation, rainbow, color }
+console.log(config.showImage);     // 0, 1, or 2
+console.log(config.image1Frames);  // frame count in slot 0
+console.log(config.frameDuration); // animation delay in ms
+```
+
+All API functions handle device open/close automatically and use read-modify-write to preserve settings you don't explicitly change.
+
 ## Debug
 
 Enable verbose protocol logging with:
@@ -154,6 +209,7 @@ INIT(0x01) → PREP_READ(0x03) × 10 → COMMIT(0x02) → READ_CFG(0x05) × 12 �
 
 ```
 src/
+├── api.js                # Public API (import this for programmatic use)
 ├── sendImageMagick.js    # Image upload with ImageMagick preprocessing
 ├── uploadImage.js        # Debug: hardcoded test image upload
 ├── configureLights.js    # CLI for lighting configuration
