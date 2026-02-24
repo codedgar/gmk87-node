@@ -69,7 +69,20 @@
         "AppImage",
         "deb"
       ],
-      "category": "Utility"
+      "category": "Utility",
+      "extraFiles": [
+        {
+          "from": "50-gmk87.rules",
+          "to": "."
+        },
+        {
+          "from": "electron/linux-setup.txt",
+          "to": "."
+        }
+      ]
+    },
+    "deb": {
+      "afterInstall": "electron/scripts/postinst.sh"
     }
   },
   "engines": {

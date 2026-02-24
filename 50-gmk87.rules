@@ -1,0 +1,3 @@
+# GMK87 Keyboard - allow access to HID device without root
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="320f", ATTRS{idProduct}=="5055", MODE="0666"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="320f", ATTRS{idProduct}=="5055", MODE="0666"

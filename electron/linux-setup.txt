@@ -1,0 +1,14 @@
+GMK87 Configurator - Linux Setup
+=================================
+
+If you get a "Failed to open HID device" or "cannot open device" error,
+your system needs a udev rule to allow access to the keyboard without root.
+
+Run these commands:
+
+    sudo cp 50-gmk87.rules /etc/udev/rules.d/
+    sudo udevadm control --reload-rules && sudo udevadm trigger
+
+Then replug your keyboard.
+
+If you installed the .deb package, this was done automatically.
