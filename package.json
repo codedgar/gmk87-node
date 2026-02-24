@@ -35,7 +35,7 @@
   "devDependencies": {
     "electron": "^33.0.0",
     "electron-builder": "^26.8.1",
-    "electron-rebuild": "^3.2.9"
+    "@electron/rebuild": "^3.7.1"
   },
   "build": {
     "appId": "com.codedgar.gmk87-configurator",
@@ -75,7 +75,10 @@
     "image-upload",
     "time-sync"
   ],
-  "author": "Codedgar",
+  "author": {
+    "name": "Codedgar",
+    "email": "edgar@codedgar.com"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",

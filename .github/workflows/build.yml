@@ -8,6 +8,7 @@ on:
 
 jobs:
   build:
+    timeout-minutes: 30
     strategy:
       matrix:
         include:
@@ -27,14 +28,19 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install dependencies
-        run: npm ci
-
       - name: Install Linux build dependencies
         if: matrix.platform == 'linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libudev-dev libusb-1.0-0-dev
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          npm_config_ignore_scripts: true
+
+      - name: Rebuild native modules for Electron
+        run: npx electron-rebuild
 
       - name: Build
         run: npm run dist:${{ matrix.platform }}
