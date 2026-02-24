@@ -59,7 +59,6 @@
       "entitlements": "electron/entitlements.mac.plist",
       "entitlementsInherit": "electron/entitlements.mac.plist"
     },
-    "afterSign": "electron/notarize.cjs",
     "win": {
       "icon": "electron/assets/icon.ico",
       "target": "nsis"
