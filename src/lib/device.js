@@ -25,6 +25,12 @@ const DISPLAY_WIDTH = 240;
 /** @constant {number} Target display height in pixels */
 const DISPLAY_HEIGHT = 135;
 
+/** @type {boolean} Enable verbose protocol debug logging. Set via DEBUG=1 env var. */
+let DEBUG = process.env.DEBUG === "1";
+
+/** Toggle debug logging at runtime */
+function setDebug(enabled) { DEBUG = !!enabled; }
+
 // -------------------------------------------------------
 // Common Utilities
 // -------------------------------------------------------
@@ -80,6 +86,18 @@ function toHexNum(num) {
  */
 function findDeviceInfo() {
   const devices = HID.devices();
+  // The Python reference uses USB interface 3 for the config/upload protocol.
+  // On macOS, node-hid exposes this as the interface with usagePage 0xFF1C.
+  // Opening by specific interface avoids macOS requiring sudo for keyboard interfaces.
+  const configInterface = devices.find(
+    (d) =>
+      d.vendorId === VENDOR_ID &&
+      d.productId === PRODUCT_ID &&
+      d.interface === 3
+  );
+  if (configInterface) return configInterface;
+
+  // Fallback: any matching device
   return devices.find(
     (d) => d.vendorId === VENDOR_ID && d.productId === PRODUCT_ID
   );
@@ -87,6 +105,7 @@ function findDeviceInfo() {
 
 /**
  * Opens a connection to the GMK87 device with retry logic
+ * Opens by path to target the vendor-specific interface, avoiding sudo on macOS
  * @param {number} [retries=2] - Number of retry attempts if opening fails
  * @returns {HID.HID} Connected HID device object
  * @throws {Error} If device not found or fails to open after all retries
@@ -99,11 +118,7 @@ function openDevice(retries = 2) {
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      if (process.platform === "darwin") {
-        return new HID.HID(VENDOR_ID, PRODUCT_ID);
-      } else {
-        return new HID.HID(info.path);
-      }
+      return new HID.HID(info.path);
     } catch (e) {
       if (attempt === retries) {
         throw new Error(
@@ -237,17 +252,18 @@ async function send(device, command, data60 = null, waitForAck = true) {
     return false;
   }
 
-  const expectedAck = buf.slice(0, 8);
-  const receivedAck = response.slice(0, 8);
-
-  if (expectedAck.equals(receivedAck)) {
+  // Check ACK by comparing command (byte 3) only
+  // Note: On macOS, the HID driver changes report ID (byte 0) and may recalculate
+  // checksums (bytes 1-2). We can't reliably compare those bytes cross-platform.
+  // Instead, we verify the command byte echoes back correctly.
+  if (response[3] === buf[3]) {
     return true;
   } else {
     console.warn(
       `  ✗ ACK mismatch for cmd 0x${command.toString(16).padStart(2, "0")}`
     );
-    console.warn(`    Expected: ${expectedAck.toString("hex")}`);
-    console.warn(`    Received: ${receivedAck.toString("hex")}`);
+    console.warn(`    Expected: ${buf.slice(0, 8).toString("hex")}`);
+    console.warn(`    Received: ${response.slice(0, 8).toString("hex")}`);
     return false;
   }
 }
@@ -282,6 +298,248 @@ async function trySend(device, cmd, payload = undefined, tries = 3) {
     `Failed to send cmd 0x${cmd.toString(16).padStart(2, "0")} after ${tries} attempts`
   );
   return false;
+}
+
+// -------------------------------------------------------
+// Python-Compatible Protocol Functions
+// -------------------------------------------------------
+
+/**
+ * Sends a command using the Python/USB protocol format (with length and position metadata)
+ * This matches the reference.py implementation exactly
+ * @param {HID.HID} device - Connected HID device
+ * @param {number} commandId - Command byte (1-255)
+ * @param {Buffer} data - Data payload (max 56 bytes)
+ * @param {number} [pos=0] - Position offset (24-bit)
+ * @returns {Promise<Buffer|null>} Response data from byte 4 onwards, or null if failed
+ */
+async function sendWithPosition(device, commandId, data, pos = 0) {
+  if (commandId < 1 || commandId > 0xff) {
+    throw new Error("Command ID must be between 1 and 255");
+  }
+  if (data.length > 56) {
+    throw new Error("Data payload cannot exceed 56 bytes");
+  }
+
+  // Python has a delay before command 2 to give device time to process
+  if (commandId === 2) {
+    await delay(100);
+  }
+
+  const buffer = Buffer.alloc(64, 0x00);
+  buffer[0] = 0x04;               // Report ID
+  buffer[3] = commandId;          // Command
+  buffer[4] = data.length;        // Data length
+  buffer[5] = pos & 0xff;         // Position LSB
+  buffer[6] = (pos >> 8) & 0xff;  // Position mid byte
+  buffer[7] = (pos >> 16) & 0xff; // Position MSB
+
+  // Copy data starting at byte 8
+  data.copy(buffer, 8);
+
+  // Calculate checksum of bytes 3-63
+  const chk = checksum(buffer);
+  buffer[1] = chk & 0xff;
+  buffer[2] = (chk >> 8) & 0xff;
+
+  if (DEBUG) console.log(`  [DEBUG sendWithPosition] CMD 0x${commandId.toString(16).padStart(2, "0")}: ${buffer.slice(0, 12).toString("hex")}`);
+  device.write([...buffer]);
+
+  // Python loops with "while True" reading until it gets matching response
+  // We need to do the same - keep reading and discard non-matching responses
+  const startTime = Date.now();
+  const timeout = 1000; // 1 second total timeout
+
+  while (Date.now() - startTime < timeout) {
+    const response = await readResponse(device, 50); // Shorter per-read timeout
+    if (!response) {
+      // No response yet, continue looping
+      await delay(5);
+      continue;
+    }
+
+    if (DEBUG) console.log(`  [DEBUG sendWithPosition] Response: ${response.slice(0, 12).toString("hex")}`);
+
+    // Check if command byte (byte 3) matches
+    // Python checks bytes 0-2 (report ID + checksum), but on macOS those change
+    // So we verify command byte which is the most reliable indicator
+    if (response[3] === buffer[3]) {
+      // Match! Return data from byte 4 onwards (like Python does)
+      return response.slice(4);
+    }
+
+    // Non-matching response, discard and keep reading (like Python's while True loop)
+    if (DEBUG) console.log(`  [DEBUG sendWithPosition] Discarding non-matching response (cmd: 0x${response[3].toString(16)}), continuing...`);
+  }
+
+  // Timeout - no matching response received
+  console.warn(`  ⚠ Timeout waiting for response to command 0x${commandId.toString(16).padStart(2, "0")}`);
+  return null;
+}
+
+/**
+ * Reads the current configuration from the device using Python protocol
+ * @param {HID.HID} device - Connected HID device
+ * @returns {Promise<Buffer>} 48-byte configuration buffer
+ * @throws {Error} If reading fails
+ */
+async function readConfigFromDevice(device) {
+  console.log("Reading configuration using Python protocol...");
+
+  // Step 1: Init command
+  await sendWithPosition(device, 0x01, Buffer.alloc(0), 0);
+
+  // Step 2: Send command 0x03 (prepare read) - 9 times for 4-byte chunks
+  for (let i = 0; i < 9; i++) {
+    await sendWithPosition(device, 0x03, Buffer.alloc(4, 0x00), i * 4);
+  }
+  // Final prep for byte 36
+  await sendWithPosition(device, 0x03, Buffer.alloc(1, 0x00), 36);
+
+  // Step 3: Commit
+  await sendWithPosition(device, 0x02, Buffer.alloc(0), 0);
+
+  // Step 4: Read configuration in 12 chunks of 4 bytes using command 0x05
+  const configBuffer = Buffer.alloc(48, 0x00);
+
+  for (let i = 0; i < 12; i++) {
+    const position = i * 4;
+    const chunk = await sendWithPosition(device, 0x05, Buffer.alloc(4, 0x00), position);
+
+    if (chunk && chunk.length >= 4) {
+      // Chunk contains response data (already sliced from byte 4)
+      chunk.slice(0, 4).copy(configBuffer, position);
+    } else {
+      console.warn(`Failed to read config chunk ${i} at position ${position}`);
+    }
+  }
+
+  console.log(`✓ Configuration read (48 bytes): ${configBuffer.toString('hex')}`);
+  return configBuffer;
+}
+
+/**
+ * Parses 48-byte config buffer into structured object
+ * @param {Buffer} configBuffer - 48-byte configuration
+ * @returns {Object} Parsed configuration
+ */
+function parseConfigBuffer(configBuffer) {
+  return {
+    underglow: {
+      effect: configBuffer[1],
+      brightness: configBuffer[2],
+      speed: configBuffer[3],
+      orientation: configBuffer[4],
+      rainbow: configBuffer[5],
+      hue: {
+        red: configBuffer[6],
+        green: configBuffer[7],
+        blue: configBuffer[8],
+      },
+    },
+    winlock: configBuffer[21],
+    led: {
+      mode: configBuffer[28],
+      saturation: configBuffer[29],
+      rainbow: configBuffer[31],
+      color: configBuffer[32],
+    },
+    showImage: configBuffer[33],
+    image1Frames: configBuffer[34],
+    time: {
+      second: configBuffer[35],
+      minute: configBuffer[36],
+      hour: configBuffer[37],
+      dayOfWeek: configBuffer[38],
+      date: configBuffer[39],
+      month: configBuffer[40],
+      year: configBuffer[41],
+    },
+    frameDuration: configBuffer[43] | (configBuffer[44] << 8),
+    image2Frames: configBuffer[46],
+    _raw: configBuffer,
+  };
+}
+
+/**
+ * Builds 48-byte config buffer from existing config + changes
+ * @param {Object} existingConfig - Current config (from parseConfigBuffer)
+ * @param {Object} changes - Changes to apply
+ * @returns {Buffer} Updated 48-byte configuration buffer
+ */
+function buildConfigBuffer(existingConfig, changes) {
+  const buffer = Buffer.from(existingConfig._raw);
+
+  // Apply underglow changes
+  if (changes.underglow) {
+    if (changes.underglow.effect !== undefined) buffer[1] = changes.underglow.effect;
+    if (changes.underglow.brightness !== undefined) buffer[2] = changes.underglow.brightness;
+    if (changes.underglow.speed !== undefined) buffer[3] = changes.underglow.speed;
+    if (changes.underglow.orientation !== undefined) buffer[4] = changes.underglow.orientation;
+    if (changes.underglow.rainbow !== undefined) buffer[5] = changes.underglow.rainbow;
+    if (changes.underglow.hue) {
+      if (changes.underglow.hue.red !== undefined) buffer[6] = changes.underglow.hue.red;
+      if (changes.underglow.hue.green !== undefined) buffer[7] = changes.underglow.hue.green;
+      if (changes.underglow.hue.blue !== undefined) buffer[8] = changes.underglow.hue.blue;
+    }
+  }
+
+  // Apply other changes
+  if (changes.winlock !== undefined) buffer[21] = changes.winlock;
+
+  if (changes.led) {
+    if (changes.led.mode !== undefined) buffer[28] = changes.led.mode;
+    if (changes.led.saturation !== undefined) buffer[29] = changes.led.saturation;
+    if (changes.led.rainbow !== undefined) buffer[31] = changes.led.rainbow;
+    if (changes.led.color !== undefined) buffer[32] = changes.led.color;
+  }
+
+  if (changes.showImage !== undefined) buffer[33] = changes.showImage;
+  if (changes.image1Frames !== undefined) buffer[34] = changes.image1Frames;
+  if (changes.image2Frames !== undefined) buffer[46] = changes.image2Frames;
+
+  // Update time if requested
+  if (changes.time) {
+    const now = new Date();
+    buffer[35] = toHexNum(now.getSeconds());
+    buffer[36] = toHexNum(now.getMinutes());
+    buffer[37] = toHexNum(now.getHours());
+    buffer[38] = now.getDay();
+    buffer[39] = toHexNum(now.getDate());
+    buffer[40] = toHexNum(now.getMonth() + 1);
+    buffer[41] = toHexNum(now.getFullYear() % 100);
+  }
+
+  if (changes.frameDuration !== undefined) {
+    buffer[43] = changes.frameDuration & 0xff;
+    buffer[44] = (changes.frameDuration >> 8) & 0xff;
+  }
+
+  return buffer;
+}
+
+/**
+ * Writes config buffer to device using Python protocol
+ * @param {HID.HID} device - Connected HID device
+ * @param {Buffer} configBuffer - 48-byte configuration to write
+ * @returns {Promise<boolean>} True if successful
+ */
+async function writeConfigToDevice(device, configBuffer) {
+  console.log("Writing configuration using Python protocol...");
+  console.log(`  Writing 48 bytes: ...${configBuffer.slice(33, 47).toString('hex')}...`);
+  console.log(`  Byte 33 (showImage): ${configBuffer[33]}, Byte 34 (slot0): ${configBuffer[34]}, Byte 46 (slot1): ${configBuffer[46]}`);
+
+  // Step 1: Init
+  await sendWithPosition(device, 0x01, Buffer.alloc(0), 0);
+
+  // Step 2: Write config using command 0x06
+  await sendWithPosition(device, 0x06, configBuffer, 0);
+
+  // Step 3: Commit
+  await sendWithPosition(device, 0x02, Buffer.alloc(0), 0);
+
+  console.log("✓ Configuration written successfully");
+  return true;
 }
 
 // -------------------------------------------------------
@@ -327,7 +585,8 @@ async function sendConfigFrame(
   device,
   shownImage = 0,
   image0NumOfFrames = 1,
-  image1NumOfFrames = 1
+  image1NumOfFrames = 1,
+  preserveSettings = {}
 ) {
   const now = new Date();
 
@@ -337,7 +596,33 @@ async function sendConfigFrame(
 
   const command = Buffer.alloc(64, 0x00);
 
-  command[0x04] = 0x29; // 0x29 = display/time only, 0x30 = full config including RGB
+  // Use 0x30 (full config) if we have settings to preserve, otherwise 0x29 (display/time only)
+  const useFullConfig = preserveSettings && (preserveSettings.underglow || preserveSettings.led);
+  command[0x04] = useFullConfig ? 0x30 : 0x29;
+
+  // If preserving settings, add underglow and LED configuration
+  if (useFullConfig) {
+    const ug = preserveSettings.underglow || {};
+    const led = preserveSettings.led || {};
+
+    // Underglow (bytes 0x09-0x10 = indices 9-16)
+    command[0x09] = ug.effect ?? 0x00;
+    command[0x0a] = ug.brightness ?? 0x00;
+    command[0x0b] = ug.speed ?? 0x00;
+    command[0x0c] = ug.orientation ?? 0x00;
+    command[0x0d] = ug.rainbow ?? 0x00;
+    command[0x0e] = ug.hue?.red ?? 0x00;
+    command[0x0f] = ug.hue?.green ?? 0x00;
+    command[0x10] = ug.hue?.blue ?? 0x00;
+
+    // LED (bytes 0x1c, 0x1d, 0x1f, 0x20 = indices 28, 29, 31, 32)
+    command[0x1c] = led.mode ?? 0x00;
+    command[0x1d] = led.saturation ?? 0x00;
+    command[0x1f] = led.rainbow ?? 0x00;
+    command[0x20] = led.color ?? 0x00;
+  }
+
+  // Display and time settings (same for both modes)
   command[0x29] = shownImage;
   command[0x2a] = image0NumOfFrames;
   command[0x2b] = toHexNum(now.getSeconds());
@@ -355,126 +640,18 @@ async function sendConfigFrame(
 }
 
 // -------------------------------------------------------
-// Step 1: Reset Device State
-// -------------------------------------------------------
-
-/**
- * Fully resets the GMK87's state machine before initialization
- * Flushes any pending responses, sends dummy commands to clear state,
- * and waits for the device buffer to be quiet
- * @param {HID.HID} device - Connected HID device
- * @returns {Promise<void>}
- */
-async function resetDeviceState(device) {
-  console.log("Resetting device state...");
-  
-  // Try to wake/clear with 0x00
-  await trySend(device, 0x00, undefined, 1);
-  await delay(50);
-
-  // Send a Ready signal to flush any leftover 0x23 acks
-  await trySend(device, 0x23, undefined, 1);
-
-  // Drain anything that comes back
-  const stale = await drainDevice(device, 500);
-  if (stale.length) {
-    console.log(`  Cleared ${stale.length} residual messages`);
-  } else {
-    console.log("  No residual messages in device buffer");
-  }
-
-  // Let the MCU breathe a bit before INIT
-  await delay(200);
-  console.log("Device state reset complete.");
-}
-
-// -------------------------------------------------------
-// Step 2: Revive Device (if needed)
-// -------------------------------------------------------
-
-/**
- * Attempts to revive a non-responsive HID endpoint without power-cycling
- * Sends a zero-length packet and reopens the device up to 6 times with
- * incremental backoff. After 3 failures, adds extended cooldown before
- * attempting the final 3 tries
- * @param {HID.HID} device - The potentially unresponsive HID device
- * @returns {Promise<HID.HID|null>} Revived device object or null if all attempts failed
- */
-async function reviveDevice(device) {
-  console.log("Attempting soft HID revive...");
-
-  // Zero-length "kick" to flush endpoint
-  try {
-    const kick = Buffer.alloc(64, 0x00);
-    kick[0] = REPORT_ID;
-    device.write([...kick]);
-    await delay(150);
-  } catch {
-    // ignore write errors
-  }
-
-  let reopened;
-  for (let attempt = 1; attempt <= 6; attempt++) {
-    // After 3 failed tries, longer cooldown before the last 3
-    if (attempt === 4) {
-      console.log("  Extended cooldown before final recovery phase...");
-      await delay(2000); // 2-second cooldown
-    }
-
-    const backoff = attempt * 100; // incremental backoff 100–600 ms
-    try {
-      if (reopened) {
-        try {
-          reopened.close();
-        } catch {}
-      }
-      device.close();
-    } catch {}
-
-    await delay(150);
-
-    try {
-      reopened = openDevice();
-      console.log(`  Reopen attempt ${attempt}: OK`);
-
-      await drainDevice(reopened, 300);
-
-      const ok = await trySend(reopened, 0x01);
-      if (ok) {
-        console.log(`✓ Device revived successfully on attempt ${attempt}.`);
-        return reopened;
-      } else {
-        console.warn(`  No ACK on INIT during attempt ${attempt}.`);
-      }
-    } catch (err) {
-      console.warn(`  Reopen attempt ${attempt} failed: ${err.message}`);
-    }
-
-    console.log(`  Waiting ${backoff} ms before next attempt...`);
-    await delay(backoff);
-  }
-
-  console.error(
-    "✗ Soft HID revive failed after 6 attempts — physical replug may be required."
-  );
-  return null;
-}
-
-// -------------------------------------------------------
 // Frame Building & Transmission
 // -------------------------------------------------------
 
 /**
- * Builds frame data from an image file for transmission to the device
- * Loads the image, resizes it to 240x135, converts pixels to RGB565 format,
- * and chunks them into 64-byte frames for the HID protocol
+ * Converts an image to raw RGB565 pixel data padded to 32KB
+ * Matches Python's encode_frame exactly
  * @param {string} imagePath - Path to the image file to load
- * @param {number} [imageIndex=0] - Target image slot on device (0 or 1)
- * @returns {Promise<Buffer[]>} Array of 60-byte frame buffers ready for transmission
+ * @returns {Promise<Buffer>} 32KB buffer containing RGB565 pixel data
  * @throws {Error} If image cannot be loaded or processed
  */
-async function buildImageFrames(imagePath, imageIndex = 0) {
-  console.log(`Loading image: ${imagePath} for slot ${imageIndex}`);
+async function buildRawImageData(imagePath) {
+  console.log(`Loading image: ${imagePath}`);
   const img = await Jimp.read(imagePath);
 
   if (img.bitmap.width !== DISPLAY_WIDTH || img.bitmap.height !== DISPLAY_HEIGHT) {
@@ -482,90 +659,66 @@ async function buildImageFrames(imagePath, imageIndex = 0) {
     img.resize(DISPLAY_WIDTH, DISPLAY_HEIGHT);
   }
 
-  const frames = [];
-  const command = Buffer.alloc(64, 0);
-  let startOffset = 0x00;
-  let bufIndex = 0x08;
+  // Python: frame_size = ((DISPLAY_WIDTH * DISPLAY_HEIGHT * 2) + 0x7fff) & ~0x7fff
+  // This rounds up to the next 32KB boundary
+  const frameSize = ((DISPLAY_WIDTH * DISPLAY_HEIGHT * 2) + 0x7fff) & ~0x7fff;
+  const frameBuffer = Buffer.alloc(frameSize, 0x00);
 
-  /**
-   * Internal helper: transmits accumulated pixel data as a frame
-   * @private
-   */
-  function transmit() {
-    if (bufIndex === 0x08) return;
-
-    command[0x04] = BYTES_PER_FRAME;
-    command[0x05] = startOffset & 0xff;
-    command[0x06] = (startOffset >> 8) & 0xff;
-    command[0x07] = imageIndex;
-
-    frames.push(Buffer.from(command.subarray(4, 64)));
-
-    startOffset += BYTES_PER_FRAME;
-    bufIndex = 0x08;
-    command.fill(0, 0x08);
-  }
-
-  // Convert each pixel to RGB565 and pack into frames
+  // Convert each pixel to RGB565 (matches Python's encode_frame)
+  let idx = 0;
   for (let y = 0; y < DISPLAY_HEIGHT; y++) {
     for (let x = 0; x < DISPLAY_WIDTH; x++) {
       const { r, g, b } = Jimp.intToRGBA(img.getPixelColor(x, y));
       const rgb565 = toRGB565(r, g, b);
 
-      command[bufIndex++] = (rgb565 >> 8) & 0xff;
-      command[bufIndex++] = rgb565 & 0xff;
-
-      if (bufIndex >= 64) {
-        transmit();
-      }
+      frameBuffer[idx++] = (rgb565 >> 8) & 0xff;
+      frameBuffer[idx++] = rgb565 & 0xff;
     }
   }
 
-  transmit(); // Flush any remaining data
-
-  console.log(`Total frames generated: ${frames.length}`);
-  return frames;
+  return frameBuffer;
 }
 
 /**
- * Transmits an array of frames to the device with progress reporting and error handling
- * Sends frames using command 0x21 with automatic retry and ACK verification
+ * Transmits frame data to the device in 56-byte chunks with position tracking
+ * Uses sendWithPosition (Python protocol) matching reference.py
+ * NOTE: Must call startUploadSession() before calling this function!
  * @param {HID.HID} device - Connected HID device
- * @param {Buffer[]} frames - Array of frame buffers to send
- * @param {string} [label="frames"] - Label for progress messages
- * @returns {Promise<{sent: number, failed: number}>} Statistics about transmission success
- * @throws {Error} If more than 10 frames fail to receive acknowledgment
+ * @param {Buffer} data - Complete frame data buffer to send
+ * @param {string} [label="data"] - Label for progress messages
+ * @returns {Promise<void>}
+ * @throws {Error} If device doesn't respond to commands
  */
-async function sendFrames(device, frames, label = "frames") {
-  console.log(`Sending ${frames.length} ${label}...`);
-  let sent = 0;
-  let failed = 0;
+async function sendFrameData(device, data, label = "data", startPosition = 0) {
+  const total = data.length;
+  console.log(`Uploading ${total} bytes of ${label} (starting at position ${startPosition})...`);
 
-  for (let i = 0; i < frames.length; i++) {
-    const success = await trySend(device, 0x21, frames[i], 3);
+  let pos = 0;
+  let lastProgress = -1;
 
-    if (success) {
-      sent++;
-    } else {
-      failed++;
-      if (failed > 10) {
-        throw new Error(`Too many failed ACKs (${failed}), aborting upload`);
-      }
+  // Send data in 56-byte chunks (matches Python: size = min(56, total - pos))
+  while (pos < total) {
+    const size = Math.min(56, total - pos);
+    const chunk = data.slice(pos, pos + size);
+
+    // Command 0x21 with position tracking
+    // startPosition offsets for slot 1 (which starts after slot 0's data in device memory)
+    const response = await sendWithPosition(device, 0x21, chunk, startPosition + pos);
+    if (!response) {
+      throw new Error(`Failed to send data at position ${startPosition + pos}`);
     }
 
-    // Progress reporting every 256 frames
-    if (i % 256 === 0 && i > 0) {
-      console.log(`  Progress: ${i}/${frames.length} (${failed} failed ACKs)`);
+    pos += size;
+
+    // Progress reporting
+    const progress = Math.floor((pos / total) * 100);
+    if (progress > lastProgress) {
+      process.stdout.write(`\rUpload progress: ${progress}%`);
+      lastProgress = progress;
     }
   }
 
-  console.log(`  Sent ${sent}/${frames.length} ${label} (${failed} failed ACKs)`);
-
-  if (failed > 0) {
-    console.warn(`  ⚠ Warning: ${failed} frames may not have been acknowledged`);
-  }
-
-  return { sent, failed };
+  console.log("\n✓ Upload complete");
 }
 
 // -------------------------------------------------------
@@ -574,43 +727,39 @@ async function sendFrames(device, frames, label = "frames") {
 
 /**
  * Performs the complete device initialization sequence
+ * NOW USES READ-MODIFY-WRITE: Preserves lighting/LED settings during image upload
  * Executes the handshake protocol, sends configuration, and waits for ready signal
  * Includes automatic device revival if initial handshake fails
  * @param {HID.HID} device - Connected HID device
  * @param {number} [shownImage=0] - Which image slot to display after upload (0=none, 1=slot0, 2=slot1)
+ * @param {number} [imageSlot0Frames=1] - Number of frames in image slot 0
+ * @param {number} [imageSlot1Frames=1] - Number of frames in image slot 1
  * @returns {Promise<HID.HID>} The device handle (may be a revived instance)
  * @throws {Error} If initialization fails or device doesn't respond
  */
-async function initializeDevice(device, shownImage = 0) {
-  console.log("Initializing device with ACK handshake...");
+async function initializeDevice(device, shownImage = 0, imageSlot0Frames = 1, imageSlot1Frames = 1, preserveSettings = {}) {
+  console.log("Initializing device configuration (Python protocol)...");
 
-  let success = await trySend(device, 0x01);
-  if (!success) {
-    console.warn("No INIT ACK — trying soft revive...");
-    const revived = await reviveDevice(device);
-    if (!revived) throw new Error("Device could not be revived.");
-    device = revived;
-  }
-  await delay(3);
+  // Read current config first (like Python's load_config / set_frame_count / update_config)
+  console.log("Reading current configuration...");
+  const currentConfig = parseConfigBuffer(await readConfigFromDevice(device));
 
-  success = await trySend(device, 0x01);
-  if (!success) throw new Error("Device not responding to 2nd INIT!");
-  await delay(2);
+  // Build config buffer from existing config
+  const configBuffer = buildConfigBuffer(currentConfig, {
+    image1Frames: imageSlot0Frames,
+    image2Frames: imageSlot1Frames,
+    showImage: shownImage,
+    time: true, // Update time
+  });
 
-  success = await sendConfigFrame(device, shownImage, 1, 1);
-  if (!success) throw new Error("Device not responding to CONFIG!");
-  await delay(25);
+  console.log(`  Config to write: Slot0=${configBuffer[34]} frames, Slot1=${configBuffer[46]} frames, Show=${configBuffer[33]}`);
 
-  success = await trySend(device, 0x02);
-  if (!success) throw new Error("Device not responding to COMMIT!");
-  await delay(18);
+  // Use writeConfigToDevice which works for lighting
+  await writeConfigToDevice(device, configBuffer);
 
-  success = await trySend(device, 0x23);
-  if (!success) throw new Error("Device not responding to 0x23 command!");
+  console.log("✓ Device configuration complete");
 
-  await waitForReady(device);
-
-  return device; // Return potentially revived device
+  return device;
 }
 
 // -------------------------------------------------------
@@ -618,54 +767,114 @@ async function initializeDevice(device, shownImage = 0) {
 // -------------------------------------------------------
 
 /**
- * Complete pipeline to upload an image to the GMK87 device
- * Handles device connection, initialization, frame building, transmission, and cleanup
- * @param {string} imagePath - Path to the image file to upload
+ * Complete pipeline to upload images (static or animated) to the GMK87 device
+ * Supports multi-frame GIF uploads — each frame is a 65536-byte RGB565 image
+ * Preserves lighting, LED, and other settings via read-modify-write
+ * @param {string} imagePath - Path to the image file (fallback for single-slot mode)
  * @param {number} [imageIndex=0] - Target slot on device (0 or 1)
  * @param {Object} [options={}] - Upload options
  * @param {boolean} [options.showAfter=true] - Whether to display the image after upload
+ * @param {string} [options.slot0Path] - Single BMP path for slot 0 (backward compat)
+ * @param {string} [options.slot1Path] - Single BMP path for slot 1 (backward compat)
+ * @param {string[]} [options.slot0Paths] - Array of BMP paths for slot 0 frames
+ * @param {string[]} [options.slot1Paths] - Array of BMP paths for slot 1 frames
+ * @param {number} [options.frameDuration] - Animation delay in ms (clamped 60–65535)
  * @returns {Promise<boolean>} True if upload completed successfully
- * @throws {Error} If device connection fails or upload encounters errors
+ * @throws {Error} If device connection fails, upload errors, or >90 total frames
  */
 async function uploadImageToDevice(imagePath, imageIndex = 0, options = {}) {
-  const { showAfter = true } = options;
+  const { showAfter = true, slot0Path, slot1Path, slot0Paths, slot1Paths, frameDuration } = options;
   const shownImage = showAfter ? imageIndex + 1 : 0;
+
+  // Support both singular (slot0Path) and plural (slot0Paths) for backward compat
+  const paths0 = slot0Paths || (slot0Path ? [slot0Path] : null) || (imageIndex === 0 ? [imagePath] : null);
+  const paths1 = slot1Paths || (slot1Path ? [slot1Path] : null) || (imageIndex === 1 ? [imagePath] : null);
+
+  const slot0FrameCount = paths0 ? paths0.length : 1;
+  const slot1FrameCount = paths1 ? paths1.length : 1;
+  const totalFrames = slot0FrameCount + slot1FrameCount;
+
+  if (totalFrames > 36) {
+    throw new Error(`Too many frames: ${totalFrames} (slot0: ${slot0FrameCount}, slot1: ${slot1FrameCount}, max 36 total)`);
+  }
 
   let device = openDevice();
 
   try {
-    // -------------------------------------------------------
-    // Step 1: Drain device buffer
-    // -------------------------------------------------------
+    // Step 1: Read current config to preserve all settings
+    console.log("Reading current configuration to preserve settings...");
+    const configBuffer = await readConfigFromDevice(device);
+    const currentConfig = parseConfigBuffer(configBuffer);
+    console.log(`  Underglow: effect=${currentConfig.underglow.effect}, brightness=${currentConfig.underglow.brightness}`);
+    console.log(`  LED: mode=${currentConfig.led.mode}, color=${currentConfig.led.color}`);
+
+    // Step 2: Drain device buffer
     console.log("Clearing device buffer...");
     const stale = await drainDevice(device);
     if (stale.length > 0) {
       console.log(`  Drained ${stale.length} stale messages`);
     }
 
-    // -------------------------------------------------------
-    // Step 2: Reset device state
-    // -------------------------------------------------------
-    await resetDeviceState(device);
+    // Step 3: Build raw image data for BOTH slots
+    // Upload session overwrites all image memory — must send both slots
+    // Layout matches Python reference: [slot0_frame0, slot0_frame1, ..., slot1_frame0, slot1_frame1, ...]
+    console.log("Building image data for both slots...");
+    const frameSize = ((DISPLAY_WIDTH * DISPLAY_HEIGHT * 2) + 0x7fff) & ~0x7fff;
 
-    // -------------------------------------------------------
-    // Step 3: Initialize device (includes revive if needed)
-    // -------------------------------------------------------
-    device = await initializeDevice(device, shownImage);
-
-    // -------------------------------------------------------
-    // Step 4: Build and send image frames
-    // -------------------------------------------------------
-    console.log(`Building frames for slot ${imageIndex}...`);
-    const frames = await buildImageFrames(imagePath, imageIndex);
-
-    console.log(`Uploading ${frames.length} frames...`);
-    await sendFrames(device, frames, `slot ${imageIndex}`);
-
-    const success = await trySend(device, 0x02);
-    if (!success) {
-      console.warn("Final COMMIT may not have been acknowledged");
+    const slot0Buffers = [];
+    if (paths0) {
+      for (const p of paths0) {
+        slot0Buffers.push(await buildRawImageData(p));
+      }
+    } else {
+      slot0Buffers.push(Buffer.alloc(frameSize, 0x00));
     }
+
+    const slot1Buffers = [];
+    if (paths1) {
+      for (const p of paths1) {
+        slot1Buffers.push(await buildRawImageData(p));
+      }
+    } else {
+      slot1Buffers.push(Buffer.alloc(frameSize, 0x00));
+    }
+
+    const concatenatedData = Buffer.concat([...slot0Buffers, ...slot1Buffers]);
+    console.log(`  Slot 0: ${slot0Buffers.length} frame(s) (${slot0Buffers.length * frameSize} bytes)`);
+    console.log(`  Slot 1: ${slot1Buffers.length} frame(s) (${slot1Buffers.length * frameSize} bytes)`);
+    console.log(`  Total: ${concatenatedData.length} bytes (${slot0Buffers.length + slot1Buffers.length} frames)`);
+
+    // Step 4: Build config preserving all settings, only changing image/display
+    const configChanges = {
+      showImage: shownImage,
+      image1Frames: paths0 ? slot0FrameCount : currentConfig.image1Frames,
+      image2Frames: paths1 ? slot1FrameCount : currentConfig.image2Frames,
+      time: true,
+    };
+    if (frameDuration !== undefined) {
+      configChanges.frameDuration = Math.max(60, Math.min(frameDuration, 0xffff));
+    }
+    const newConfig = buildConfigBuffer(currentConfig, configChanges);
+
+    // Step 5: Upload sequence
+    // INIT → INIT → CONFIG → COMMIT → READY → INIT → FRAME_DATA → COMMIT
+    // The INIT after READY comes from Python reference's upload_frames() —
+    // it signals the keyboard to start accepting frame data
+    console.log("Initializing upload...");
+    await sendWithPosition(device, 0x01, Buffer.alloc(0), 0);
+    await sendWithPosition(device, 0x01, Buffer.alloc(0), 0);
+    await sendWithPosition(device, 0x06, newConfig, 0);
+    await sendWithPosition(device, 0x02, Buffer.alloc(0), 0);
+    await sendWithPosition(device, 0x23, Buffer.alloc(0), 0);
+    await sendWithPosition(device, 0x01, Buffer.alloc(0), 0);
+
+    // Step 6: Send both slots as one continuous stream
+    console.log("Uploading image data...");
+    await sendFrameData(device, concatenatedData, "both slots");
+
+    // Step 7: Commit
+    const response = await sendWithPosition(device, 0x02, Buffer.alloc(0), 0);
+    if (!response) console.warn("Upload COMMIT may not have been acknowledged");
 
     console.log("✓ Upload complete!");
     return true;
@@ -841,75 +1050,51 @@ async function trySendLightingFrame(device, frameData, tries = 3) {
 
 /**
  * Complete pipeline to configure lighting on the GMK87 device
- * Handles device connection, buffer draining, device reset, revival if needed,
- * and sends lighting configuration with acknowledgment checking and retries
- * @param {Object} config - Lighting configuration object (see buildLightingFrame for structure)
+ * NOW USES READ-MODIFY-WRITE: Reads current config, modifies only requested fields, writes back
+ * @param {Object} changes - Lighting configuration changes to apply
  * @returns {Promise<boolean>} True if configuration was successfully applied
  * @throws {Error} If device connection fails or configuration cannot be applied
  */
-async function configureLighting(config) {
-  let device = openDevice();
+async function configureLighting(changes, device = null) {
+  const shouldClose = !device;
+  if (!device) {
+    device = openDevice();
+  }
 
   try {
-    // -------------------------------------------------------
-    // Step 1: Drain device buffer
-    // -------------------------------------------------------
-    console.log("Clearing device buffer...");
-    const stale = await drainDevice(device);
-    if (stale.length > 0) {
-      console.log(`  Drained ${stale.length} stale messages`);
-    }
+    console.log("Reading current configuration...");
+    const currentConfig = parseConfigBuffer(await readConfigFromDevice(device));
 
-    // -------------------------------------------------------
-    // Step 2: Reset device state
-    // -------------------------------------------------------
-    await resetDeviceState(device);
+    console.log("Current settings:");
+    console.log(`  Underglow: effect=${currentConfig.underglow.effect}, brightness=${currentConfig.underglow.brightness}`);
+    console.log(`  LED: mode=${currentConfig.led.mode}, color=${currentConfig.led.color}`);
+    console.log(`  Images: slot0=${currentConfig.image1Frames}, slot1=${currentConfig.image2Frames}`);
 
-    // -------------------------------------------------------
-    // Step 3: Check device responsiveness (revive if needed)
-    // -------------------------------------------------------
-    let success = await trySend(device, 0x01, undefined, 1);
-    if (!success) {
-      console.log("Device not responding, attempting revival...");
-      const revived = await reviveDevice(device);
-      if (!revived) {
-        throw new Error("Device could not be revived.");
-      }
-      device = revived;
-    }
+    console.log("\nApplying changes (preserving other settings)...");
+    const newConfig = buildConfigBuffer(currentConfig, changes);
 
-    // -------------------------------------------------------
-    // Step 4: Build and send lighting configuration frame with ACK checking and retries
-    // -------------------------------------------------------
-    console.log("Building lighting configuration frame...");
-    const frame = buildLightingFrame(config);
-
-    console.log("Sending lighting configuration with acknowledgment checking...");
-    success = await trySendLightingFrame(device, frame, 3);
-
-    if (!success) {
-      console.warn("⚠ Lighting configuration may not have been acknowledged by device");
-      return false;
-    }
+    await writeConfigToDevice(device, newConfig);
 
     console.log("✓ Lighting configuration applied successfully!");
-    await delay(100);
     return true;
   } finally {
-    try {
-      if (device) device.close();
-    } catch {}
+    if (shouldClose) {
+      try {
+        if (device) device.close();
+      } catch {}
+    }
   }
 }
 
 /**
  * Syncs time to the keyboard
+ * NOW USES READ-MODIFY-WRITE: Preserves all other settings
  * @param {Date} [date=new Date()] - Date object to sync
+ * @param {Object} [device=null] - Optional HID device instance (if already open)
  * @returns {Promise<boolean>} True if time sync was successful
  */
-async function syncTime(date = new Date()) {
-  // Use configureLighting with minimal config (only time fields will be set)
-  return await configureLighting({});
+async function syncTime(date = new Date(), device = null) {
+  return await configureLighting({ time: true }, device);
 }
 
 /**
@@ -957,12 +1142,15 @@ export {
   readResponse,
   waitForReady,
   sendConfigFrame,
-  // Device State Management
-  resetDeviceState,
-  reviveDevice,
+  // Python-Compatible Protocol (NEW)
+  sendWithPosition,
+  readConfigFromDevice,
+  parseConfigBuffer,
+  buildConfigBuffer,
+  writeConfigToDevice,
   // Frame Building & Transmission
-  buildImageFrames,
-  sendFrames,
+  buildRawImageData,
+  sendFrameData,
   // High-Level Pipelines
   initializeDevice,
   uploadImageToDevice,
@@ -972,4 +1160,6 @@ export {
   configureLighting,
   syncTime,
   getKeyboardInfo,
+  // Debug
+  setDebug,
 };

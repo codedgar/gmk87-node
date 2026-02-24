@@ -6,14 +6,12 @@
 
 import {
   findDeviceInfo,
-  openDevice,
-  sendConfigFrame,
+  syncTime,
 } from "./lib/device.js";
 
 /**
  * Main time synchronization function
- * Detects the GMK87 device, opens a connection, sends the current time,
- * and closes the connection
+ * Detects the GMK87 device, syncs time while preserving all other settings
  * @returns {Promise<void>} Resolves when time sync is complete
  * @throws {Error} If device is not found or connection fails
  */
@@ -27,20 +25,9 @@ async function main() {
     `Device Found: ${info.product || "(unknown name)"} | VID: ${info.vendorId.toString(16)} PID: ${info.productId.toString(16)}`
   );
 
-  let device;
-  try {
-    device = openDevice();
-  } catch (e) {
-    console.error("Failed to open HID device:", e.message);
-    console.error("Try running with sudo or check permissions.");
-    process.exit(1);
-  }
-
-  console.log("Sending time synchronization frame...");
-  await sendConfigFrame(device);
+  console.log("Syncing time (preserving lighting and image settings)...");
+  await syncTime();
   console.log("✓ Time synchronized successfully");
-
-  device.close();
 }
 
 // -------------------------------------------------------
@@ -66,4 +53,4 @@ if (isMain) {
 // -------------------------------------------------------
 
 // Re-export for backward compatibility
-export { sendConfigFrame } from "./lib/device.js";
+export { syncTime } from "./lib/device.js";
