@@ -104,5 +104,10 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/codedgar/gmk87-node"
+  },
+  "overrides": {
+    "node-hid": {
+      "node-addon-api": "^7.1.0"
+    }
   }
 }
