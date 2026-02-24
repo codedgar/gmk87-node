@@ -6,6 +6,7 @@
 
 import {
   openDevice,
+  safeClose,
   drainDevice,
   buildRawImageData,
   sendFrameData,
@@ -87,7 +88,7 @@ async function main() {
   if (!response) console.warn("Upload COMMIT may not have been acknowledged");
 
   console.log("\n✓ Upload complete!");
-  device.close();
+  await safeClose(device);
 }
 
 // -------------------------------------------------------

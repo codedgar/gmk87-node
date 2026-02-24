@@ -145,29 +145,18 @@ function openDevice(retries = 2) {
  * @returns {Promise<string[]>} Array of hex strings representing drained data
  */
 async function drainDevice(device, timeoutMs = 200) {
-  return new Promise((resolve) => {
-    const drained = [];
-    let lastDataTime = Date.now();
-
-    const checkDone = setInterval(() => {
-      if (Date.now() - lastDataTime > 100) {
-        clearInterval(checkDone);
-        device.removeAllListeners("data");
-        resolve(drained);
-      }
-    }, 50);
-
-    device.on("data", (data) => {
-      lastDataTime = Date.now();
+  const drained = [];
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const data = device.readTimeout(50);
+      if (!data || data.length === 0) break;
       drained.push(Buffer.from(data).toString("hex"));
-    });
-
-    setTimeout(() => {
-      clearInterval(checkDone);
-      device.removeAllListeners("data");
-      resolve(drained);
-    }, timeoutMs);
-  });
+    } catch {
+      break;
+    }
+  }
+  return drained;
 }
 
 // -------------------------------------------------------
@@ -195,24 +184,14 @@ function checksum(buf) {
  * @returns {Promise<Buffer|null>} Response buffer or null if timeout
  */
 async function readResponse(device, timeoutMs = 150) {
-  return new Promise((resolve) => {
-    let responded = false;
-    const timeout = setTimeout(() => {
-      if (!responded) {
-        responded = true;
-        device.removeAllListeners("data");
-        resolve(null);
-      }
-    }, timeoutMs);
-
-    device.once("data", (data) => {
-      if (!responded) {
-        responded = true;
-        clearTimeout(timeout);
-        resolve(Buffer.from(data));
-      }
-    });
-  });
+  try {
+    const data = device.readTimeout(timeoutMs);
+    if (!data || data.length === 0) return null;
+    return Buffer.from(data);
+  } catch (e) {
+    if (DEBUG) console.warn(`  [readResponse] HID read error: ${e.message}`);
+    return null;
+  }
 }
 
 /**
@@ -884,9 +863,7 @@ async function uploadImageToDevice(imagePath, imageIndex = 0, options = {}) {
     console.log("✓ Upload complete!");
     return true;
   } finally {
-    try {
-      if (device) device.close();
-    } catch {}
+    await safeClose(device);
   }
 }
 
@@ -1084,9 +1061,7 @@ async function configureLighting(changes, device = null) {
     return true;
   } finally {
     if (shouldClose) {
-      try {
-        if (device) device.close();
-      } catch {}
+      await safeClose(device);
     }
   }
 }
@@ -1123,6 +1098,27 @@ function getKeyboardInfo() {
 }
 
 // -------------------------------------------------------
+// Safe Device Cleanup
+// -------------------------------------------------------
+
+/**
+ * Safely closes a HID device, avoiding SIGSEGV on Linux.
+ * node-hid's internal read thread (started by data event listeners) can still
+ * be active when close() is called, causing a use-after-free crash.
+ * This drains listeners, pauses the read thread, and waits for it to wind down.
+ * @param {HID.HID} device - Connected HID device
+ * @returns {Promise<void>}
+ */
+async function safeClose(device) {
+  if (!device) return;
+  try {
+    device.close();
+  } catch {
+    // Ignore close errors — device may already be disconnected
+  }
+}
+
+// -------------------------------------------------------
 // Exports
 // -------------------------------------------------------
 
@@ -1141,6 +1137,7 @@ export {
   // Device Connection
   findDeviceInfo,
   openDevice,
+  safeClose,
   drainDevice,
   // Protocol Functions
   checksum,

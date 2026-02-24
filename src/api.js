@@ -51,6 +51,7 @@ import {
   syncTime,
   getKeyboardInfo,
   openDevice,
+  safeClose,
   readConfigFromDevice,
   parseConfigBuffer,
 } from "./lib/device.js";
@@ -109,7 +110,7 @@ async function readConfig() {
   try {
     return parseConfigBuffer(await readConfigFromDevice(device));
   } finally {
-    device.close();
+    await safeClose(device);
   }
 }
 

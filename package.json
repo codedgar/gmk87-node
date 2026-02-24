@@ -30,7 +30,7 @@
   "dependencies": {
     "@jaames/iro": "^5.5.2",
     "jimp": "^0.22.10",
-    "node-hid": "^2.2.0"
+    "node-hid": "^3.3.0"
   },
   "devDependencies": {
     "@electron/notarize": "^3.1.1",
