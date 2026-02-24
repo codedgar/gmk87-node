@@ -767,25 +767,36 @@ async function initializeDevice(device, shownImage = 0, imageSlot0Frames = 1, im
 // -------------------------------------------------------
 
 /**
- * Complete pipeline to upload an image to the GMK87 device
- * NOW USES READ-MODIFY-WRITE: Preserves lighting, LED, and other slot's frame count
- * Handles device connection, initialization, frame building, transmission, and cleanup
- * @param {string} imagePath - Path to the image file to upload
+ * Complete pipeline to upload images (static or animated) to the GMK87 device
+ * Supports multi-frame GIF uploads — each frame is a 65536-byte RGB565 image
+ * Preserves lighting, LED, and other settings via read-modify-write
+ * @param {string} imagePath - Path to the image file (fallback for single-slot mode)
  * @param {number} [imageIndex=0] - Target slot on device (0 or 1)
  * @param {Object} [options={}] - Upload options
  * @param {boolean} [options.showAfter=true] - Whether to display the image after upload
+ * @param {string} [options.slot0Path] - Single BMP path for slot 0 (backward compat)
+ * @param {string} [options.slot1Path] - Single BMP path for slot 1 (backward compat)
+ * @param {string[]} [options.slot0Paths] - Array of BMP paths for slot 0 frames
+ * @param {string[]} [options.slot1Paths] - Array of BMP paths for slot 1 frames
+ * @param {number} [options.frameDuration] - Animation delay in ms (clamped 60–65535)
  * @returns {Promise<boolean>} True if upload completed successfully
- * @throws {Error} If device connection fails or upload encounters errors
+ * @throws {Error} If device connection fails, upload errors, or >90 total frames
  */
 async function uploadImageToDevice(imagePath, imageIndex = 0, options = {}) {
-  const { showAfter = true, slot0Path, slot1Path } = options;
+  const { showAfter = true, slot0Path, slot1Path, slot0Paths, slot1Paths, frameDuration } = options;
   const shownImage = showAfter ? imageIndex + 1 : 0;
 
-  // The upload session overwrites ALL image memory, so both slots must be sent.
-  // If two paths are provided, use them. Otherwise use imagePath for the target slot
-  // and a blank (black) image for the other.
-  const path0 = slot0Path || (imageIndex === 0 ? imagePath : null);
-  const path1 = slot1Path || (imageIndex === 1 ? imagePath : null);
+  // Support both singular (slot0Path) and plural (slot0Paths) for backward compat
+  const paths0 = slot0Paths || (slot0Path ? [slot0Path] : null) || (imageIndex === 0 ? [imagePath] : null);
+  const paths1 = slot1Paths || (slot1Path ? [slot1Path] : null) || (imageIndex === 1 ? [imagePath] : null);
+
+  const slot0FrameCount = paths0 ? paths0.length : 1;
+  const slot1FrameCount = paths1 ? paths1.length : 1;
+  const totalFrames = slot0FrameCount + slot1FrameCount;
+
+  if (totalFrames > 36) {
+    throw new Error(`Too many frames: ${totalFrames} (slot0: ${slot0FrameCount}, slot1: ${slot1FrameCount}, max 36 total)`);
+  }
 
   let device = openDevice();
 
@@ -806,31 +817,56 @@ async function uploadImageToDevice(imagePath, imageIndex = 0, options = {}) {
 
     // Step 3: Build raw image data for BOTH slots
     // Upload session overwrites all image memory — must send both slots
+    // Layout matches Python reference: [slot0_frame0, slot0_frame1, ..., slot1_frame0, slot1_frame1, ...]
     console.log("Building image data for both slots...");
     const frameSize = ((DISPLAY_WIDTH * DISPLAY_HEIGHT * 2) + 0x7fff) & ~0x7fff;
-    const imageData0 = path0 ? await buildRawImageData(path0) : Buffer.alloc(frameSize, 0x00);
-    const imageData1 = path1 ? await buildRawImageData(path1) : Buffer.alloc(frameSize, 0x00);
-    const concatenatedData = Buffer.concat([imageData0, imageData1]);
-    console.log(`  Slot 0: ${path0 || "(blank)"} (${imageData0.length} bytes)`);
-    console.log(`  Slot 1: ${path1 || "(blank)"} (${imageData1.length} bytes)`);
-    console.log(`  Total: ${concatenatedData.length} bytes`);
+
+    const slot0Buffers = [];
+    if (paths0) {
+      for (const p of paths0) {
+        slot0Buffers.push(await buildRawImageData(p));
+      }
+    } else {
+      slot0Buffers.push(Buffer.alloc(frameSize, 0x00));
+    }
+
+    const slot1Buffers = [];
+    if (paths1) {
+      for (const p of paths1) {
+        slot1Buffers.push(await buildRawImageData(p));
+      }
+    } else {
+      slot1Buffers.push(Buffer.alloc(frameSize, 0x00));
+    }
+
+    const concatenatedData = Buffer.concat([...slot0Buffers, ...slot1Buffers]);
+    console.log(`  Slot 0: ${slot0Buffers.length} frame(s) (${slot0Buffers.length * frameSize} bytes)`);
+    console.log(`  Slot 1: ${slot1Buffers.length} frame(s) (${slot1Buffers.length * frameSize} bytes)`);
+    console.log(`  Total: ${concatenatedData.length} bytes (${slot0Buffers.length + slot1Buffers.length} frames)`);
 
     // Step 4: Build config preserving all settings, only changing image/display
-    const newConfig = buildConfigBuffer(currentConfig, {
+    const configChanges = {
       showImage: shownImage,
-      image1Frames: path0 ? 1 : currentConfig.image1Frames,
-      image2Frames: path1 ? 1 : currentConfig.image2Frames,
+      image1Frames: paths0 ? slot0FrameCount : currentConfig.image1Frames,
+      image2Frames: paths1 ? slot1FrameCount : currentConfig.image2Frames,
       time: true,
-    });
+    };
+    if (frameDuration !== undefined) {
+      configChanges.frameDuration = Math.max(60, Math.min(frameDuration, 0xffff));
+    }
+    const newConfig = buildConfigBuffer(currentConfig, configChanges);
 
-    // Step 5: Upload sequence matching sniffed protocol
-    // INIT → INIT → CONFIG → COMMIT → READY → FRAME_DATA → COMMIT
-    console.log("Initializing upload (new protocol)...");
+    // Step 5: Upload sequence
+    // INIT → INIT → CONFIG → COMMIT → READY → INIT → FRAME_DATA → COMMIT
+    // The INIT after READY comes from Python reference's upload_frames() —
+    // it signals the keyboard to start accepting frame data
+    console.log("Initializing upload...");
     await sendWithPosition(device, 0x01, Buffer.alloc(0), 0);
     await sendWithPosition(device, 0x01, Buffer.alloc(0), 0);
     await sendWithPosition(device, 0x06, newConfig, 0);
     await sendWithPosition(device, 0x02, Buffer.alloc(0), 0);
     await sendWithPosition(device, 0x23, Buffer.alloc(0), 0);
+    await sendWithPosition(device, 0x01, Buffer.alloc(0), 0);
 
     // Step 6: Send both slots as one continuous stream
     console.log("Uploading image data...");

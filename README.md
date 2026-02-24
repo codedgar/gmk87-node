@@ -53,12 +53,20 @@ Upload a single slot (the other slot will be blank):
 npm run sendimage -- --file path/to/image.png --slot 0
 ```
 
+Upload animated GIFs:
+
+```bash
+npm run sendimage -- --slot0 animation.gif --slot1 static.png --ms 100
+npm run sendimage -- --file animation.gif --slot 0 --ms 150
+```
+
 Options:
-- `--slot0` / `--slot1` — Paths for each display slot
+- `--slot0` / `--slot1` — Paths for each display slot (static images or GIFs)
 - `--file` + `--slot` — Single image mode (backwards compatible)
+- `--ms <number>` — Animation delay in milliseconds (min 60, default 100 for GIFs)
 - `--show` — Which slot to display after upload (default: last uploaded)
 
-Images are automatically converted and resized to 240x135 via ImageMagick.
+Images and GIF frames are automatically extracted, converted, and resized to 240x135 via ImageMagick. The total number of frames across both slots must not exceed 90.
 
 ### Configure lighting
 
