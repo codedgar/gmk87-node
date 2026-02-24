@@ -86,21 +86,26 @@ function toHexNum(num) {
  */
 function findDeviceInfo() {
   const devices = HID.devices();
+
+  // Log all matching devices for debugging (helps diagnose Linux interface issues)
+  const matching = devices.filter(
+    (d) => d.vendorId === VENDOR_ID && d.productId === PRODUCT_ID
+  );
+  if (DEBUG) {
+    console.log(`Found ${matching.length} GMK87 HID interface(s):`);
+    matching.forEach((d) =>
+      console.log(`  interface=${d.interface} usagePage=0x${(d.usagePage || 0).toString(16)} path=${d.path}`)
+    );
+  }
+
   // The Python reference uses USB interface 3 for the config/upload protocol.
   // On macOS, node-hid exposes this as the interface with usagePage 0xFF1C.
   // Opening by specific interface avoids macOS requiring sudo for keyboard interfaces.
-  const configInterface = devices.find(
-    (d) =>
-      d.vendorId === VENDOR_ID &&
-      d.productId === PRODUCT_ID &&
-      d.interface === 3
-  );
+  const configInterface = matching.find((d) => d.interface === 3);
   if (configInterface) return configInterface;
 
   // Fallback: any matching device
-  return devices.find(
-    (d) => d.vendorId === VENDOR_ID && d.productId === PRODUCT_ID
-  );
+  return matching[0];
 }
 
 /**
@@ -1099,20 +1104,22 @@ async function syncTime(date = new Date(), device = null) {
 
 /**
  * Gets keyboard device information
+ * Uses HID.devices() enumeration data instead of opening the device,
+ * because device.getManufacturerString() / getProductString() are synchronous
+ * C-level calls that can hang on some Linux systems (blocks the entire event loop)
  * @returns {Object} Device information object
  */
 function getKeyboardInfo() {
-  const device = openDevice();
-  try {
-    return {
-      manufacturer: device.getManufacturerString?.() || "Unknown",
-      product: device.getProductString?.() || "GMK87",
-      vendorId: VENDOR_ID,
-      productId: PRODUCT_ID,
-    };
-  } finally {
-    device.close();
+  const info = findDeviceInfo();
+  if (!info) {
+    throw new Error("GMK87 device not found (VID: 0x320f, PID: 0x5055)");
   }
+  return {
+    manufacturer: info.manufacturer || "Unknown",
+    product: info.product || "GMK87",
+    vendorId: VENDOR_ID,
+    productId: PRODUCT_ID,
+  };
 }
 
 // -------------------------------------------------------
