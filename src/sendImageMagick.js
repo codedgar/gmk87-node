@@ -186,15 +186,16 @@ export async function processAndSend(
     const count0 = frames0 ? frames0.length : 1; // null slot = 1 blank frame
     const count1 = frames1 ? frames1.length : 1;
     if (count0 + count1 > MAX_TOTAL_FRAMES) {
-      const budget0 = frames0 ? MAX_TOTAL_FRAMES - (frames1 ? frames1.length : 1) : count0;
-      const budget1 = frames1 ? MAX_TOTAL_FRAMES - (frames0 ? Math.min(frames0.length, budget0) : 1) : count1;
-      if (frames0 && frames0.length > budget0) {
-        console.log(`  Truncating slot 0 from ${frames0.length} to ${budget0} frames (36-frame hardware limit)`);
-        frames0 = frames0.slice(0, Math.max(1, budget0));
+      const half = Math.floor(MAX_TOTAL_FRAMES / 2);
+      const target0 = frames0 ? Math.min(frames0.length, half) : 1;
+      const target1 = frames1 ? Math.min(frames1.length, MAX_TOTAL_FRAMES - target0) : 1;
+      if (frames0 && frames0.length > target0) {
+        console.log(`  Truncating slot 0 from ${frames0.length} to ${target0} frames (36-frame hardware limit)`);
+        frames0 = frames0.slice(0, target0);
       }
-      if (frames1 && frames1.length > budget1) {
-        console.log(`  Truncating slot 1 from ${frames1.length} to ${budget1} frames (36-frame hardware limit)`);
-        frames1 = frames1.slice(0, Math.max(1, budget1));
+      if (frames1 && frames1.length > target1) {
+        console.log(`  Truncating slot 1 from ${frames1.length} to ${target1} frames (36-frame hardware limit)`);
+        frames1 = frames1.slice(0, target1);
       }
     }
 
