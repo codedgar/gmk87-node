@@ -8,6 +8,7 @@
 const { app, BrowserWindow, ipcMain, dialog, shell, nativeImage } = require("electron");
 const path = require("path");
 const fs = require("fs");
+const { pathToFileURL } = require("url");
 
 let mainWindow = null;
 let api = null;
@@ -36,7 +37,7 @@ console.warn = (...args) => { captureLog("warn", args); origWarn.apply(console, 
 async function getApi() {
   if (!api) {
     api = await import(
-      path.join(__dirname, "..", "src", "api.js").replace(/\\/g, "/")
+      pathToFileURL(path.join(__dirname, "..", "src", "api.js")).href
     );
   }
   return api.default || api;
