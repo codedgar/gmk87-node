@@ -3,8 +3,15 @@
   "version": "1.0.0",
   "description": "Node.js utilities for uploading images and syncing time on GMK87 keyboard displays via HID protocol",
   "type": "module",
-  "main": "src/timesync.js",
+  "main": "electron/main.cjs",
   "scripts": {
+    "electron": "electron .",
+    "dist": "electron-builder --mac --win --linux",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win",
+    "dist:linux": "electron-builder --linux",
+    "rebuild": "electron-rebuild",
+    "postinstall": "electron-rebuild",
     "timesync": "node src/timesync.js",
     "upload": "node src/uploadImage.js",
     "sendimage": "node src/sendImageMagick.js",
@@ -21,8 +28,41 @@
     "gmk87-examples": "./src/examples.js"
   },
   "dependencies": {
+    "@jaames/iro": "^5.5.2",
     "jimp": "^0.22.10",
     "node-hid": "^2.2.0"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^26.8.1",
+    "electron-rebuild": "^3.2.9"
+  },
+  "build": {
+    "appId": "com.codedgar.gmk87-configurator",
+    "productName": "GMK87 Configurator",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**/*",
+      "src/**/*",
+      "node_modules/**/*",
+      "presets.json"
+    ],
+    "mac": {
+      "icon": "electron/assets/icon.icns",
+      "category": "public.app-category.utilities",
+      "target": "dmg"
+    },
+    "win": {
+      "icon": "electron/assets/icon.ico",
+      "target": "nsis"
+    },
+    "linux": {
+      "icon": "electron/assets/icon.png",
+      "target": ["AppImage", "deb"],
+      "category": "Utility"
+    }
   },
   "engines": {
     "node": ">=14.0.0"
