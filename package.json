@@ -33,9 +33,10 @@
     "node-hid": "^2.2.0"
   },
   "devDependencies": {
+    "@electron/notarize": "^3.1.1",
+    "@electron/rebuild": "^3.7.1",
     "electron": "^33.0.0",
-    "electron-builder": "^26.8.1",
-    "@electron/rebuild": "^3.7.1"
+    "electron-builder": "^26.8.1"
   },
   "build": {
     "appId": "com.codedgar.gmk87-configurator",
@@ -52,15 +53,23 @@
     "mac": {
       "icon": "electron/assets/icon.icns",
       "category": "public.app-category.utilities",
-      "target": "dmg"
+      "target": "dmg",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "electron/entitlements.mac.plist",
+      "entitlementsInherit": "electron/entitlements.mac.plist"
     },
+    "afterSign": "electron/notarize.cjs",
     "win": {
       "icon": "electron/assets/icon.ico",
       "target": "nsis"
     },
     "linux": {
       "icon": "electron/assets/icon.png",
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "category": "Utility"
     }
   },
