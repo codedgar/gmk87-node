@@ -62,7 +62,7 @@ jobs:
           security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
 
       - name: Build
-        run: npm run dist:${{ matrix.platform }}
+        run: npm run dist:${{ matrix.platform }} -- --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
