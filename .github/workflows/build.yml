@@ -35,10 +35,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libudev-dev libusb-1.0-0-dev
 
-      - name: Install Windows build dependencies
-        if: matrix.platform == 'win'
-        run: choco install imagemagick -y
-
       - name: Install dependencies
         run: npm ci
         env:
