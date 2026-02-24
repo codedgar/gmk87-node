@@ -69,6 +69,12 @@ jobs:
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
+      - name: Copy Linux setup files to dist
+        if: matrix.platform == 'linux'
+        run: |
+          cp 50-gmk87.rules dist/
+          cp electron/linux-setup.txt dist/
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -78,6 +84,8 @@ jobs:
             dist/*.exe
             dist/*.AppImage
             dist/*.deb
+            dist/*.rules
+            dist/*.txt
           if-no-files-found: ignore
 
   release:
@@ -106,3 +114,5 @@ jobs:
             artifacts/*.exe
             artifacts/*.AppImage
             artifacts/*.deb
+            artifacts/*.rules
+            artifacts/*.txt
