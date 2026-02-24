@@ -44,6 +44,18 @@ html, body {
   height: 100vh;
 }
 
+/* macOS titlebar drag region (hiddenInset title bar) */
+#app::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  -webkit-app-region: drag;
+  z-index: 100;
+}
+
 /* Sidebar */
 
 #sidebar {
@@ -70,6 +82,7 @@ html, body {
   flex-direction: column;
   gap: 2px;
   padding: 0 8px;
+  -webkit-app-region: no-drag;
 }
 
 .sidebar-item {
@@ -130,6 +143,7 @@ html, body {
   flex: 1;
   overflow-y: auto;
   padding: 40px 40px 40px;
+  -webkit-app-region: no-drag;
 }
 
 #content::-webkit-scrollbar {
