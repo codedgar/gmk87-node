@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GMK87 Configurator - Control your Zuoya GMK87 keyboard</title>
+  <meta name="description" content="Configure your Zuoya GMK87 keyboard display, lighting, and clock. Open source desktop app, CLI, and Node.js API for macOS, Windows, and Linux.">
+
+  <!-- Canonical -->
+  <link rel="canonical" href="https://codedgar.github.io/gmk87-node/">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="icon" type="image/png" href="icon.png">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:title" content="GMK87 Configurator">
+  <meta property="og:description" content="Configure your Zuoya GMK87 keyboard display, lighting, and clock. Open source desktop app, CLI, and Node.js API for macOS, Windows, and Linux.">
+  <meta property="og:url" content="https://codedgar.github.io/gmk87-node/">
+  <meta property="og:image" content="https://codedgar.github.io/gmk87-node/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="GMK87 Configurator">
+  <meta name="twitter:description" content="Configure your Zuoya GMK87 keyboard display, lighting, and clock. Open source desktop app, CLI, and Node.js API for macOS, Windows, and Linux.">
+  <meta name="twitter:image" content="https://codedgar.github.io/gmk87-node/og-image.png">
+
+  <!-- Theme color -->
+  <meta name="theme-color" content="#ffffff">
+
+  <!-- Structured data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "GMK87 Configurator",
+    "description": "Configure your Zuoya GMK87 keyboard display, lighting, and clock. Open source desktop app, CLI, and Node.js API for macOS, Windows, and Linux.",
+    "applicationCategory": "UtilitiesApplication",
+    "operatingSystem": "macOS, Windows, Linux",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "license": "https://opensource.org/licenses/MIT",
+    "url": "https://codedgar.github.io/gmk87-node/",
+    "downloadUrl": "https://github.com/codedgar/gmk87-node/releases/latest",
+    "screenshot": "https://codedgar.github.io/gmk87-node/screenshot.png",
+    "author": {
+      "@type": "Person",
+      "name": "Codedgar",
+      "url": "https://github.com/codedgar"
+    },
+    "codeRepository": "https://github.com/codedgar/gmk87-node"
+  }
+  </script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"Segoe UI"', 'system-ui', 'Roboto', 'sans-serif'],
+            mono: ['"SF Mono"', '"Fira Code"', '"Cascadia Code"', 'Consolas', 'monospace'],
+          },
+        },
+      },
+    }
+  </script>
+  <style>
+    /* Navbar - dark when over dark sections */
+    #navbar.nav-dark {
+      background-color: rgba(15, 17, 23, 0.85);
+      border-color: rgba(55, 65, 81, 0.5);
+      color: #e1e4ed;
+    }
+    /* code block syntax coloring */
+    .code-keyword { color: #c084fc; }
+    .code-string { color: #86efac; }
+    .code-comment { color: #6b7280; }
+    .code-fn { color: #93c5fd; }
+    .code-number { color: #fbbf24; }
+    .code-punct { color: #9ca3af; }
+  </style>
+</head>
+<body class="bg-white text-gray-900">
+
+  <!-- Nav -->
+  <nav id="navbar" class="sticky top-0 z-50 backdrop-blur-md border-b bg-white/80 border-gray-200 text-gray-900">
+    <div class="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+      <a href="#" class="flex items-center gap-2.5 no-underline" style="color:inherit;">
+        <svg width="28" height="28" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="GMK87 logo">
+          <g clip-path="url(#nav-clip0)">
+            <g clip-path="url(#nav-clip1)">
+              <rect x="2" y="2" width="60" height="60" rx="3" fill="#333333"/>
+              <rect x="10" y="5" width="44" height="50" rx="5" fill="url(#nav-paint4)" fill-opacity="0.2"/>
+              <rect x="10.5" y="5.5" width="43" height="49" rx="4.5" stroke="url(#nav-paint5)" stroke-opacity="0.4"/>
+              <path d="M21.9644 22.2222C21.3084 22.2222 20.7202 22.1121 20.1997 21.8921C19.6792 21.6678 19.2349 21.3462 18.8667 20.9272C18.4985 20.5083 18.215 20.0047 18.0161 19.4165C17.8215 18.8241 17.7241 18.1597 17.7241 17.4233V17.4106C17.7241 16.4373 17.8976 15.5931 18.2446 14.8779C18.5916 14.1585 19.0825 13.6021 19.7173 13.2085C20.3521 12.8149 21.0947 12.6182 21.9453 12.6182C22.6393 12.6182 23.2593 12.7409 23.8052 12.9863C24.3511 13.2318 24.7996 13.5767 25.1509 14.021C25.5021 14.4611 25.7327 14.9774 25.8428 15.5698L25.8491 15.6333H24.4209L24.4019 15.5698C24.241 15.0282 23.9469 14.6113 23.5195 14.3193C23.0964 14.0273 22.5716 13.8813 21.9453 13.8813C21.3825 13.8813 20.8937 14.0252 20.479 14.313C20.0643 14.6007 19.7427 15.0091 19.5142 15.5381C19.2899 16.0628 19.1777 16.6849 19.1777 17.4043V17.417C19.1777 17.9629 19.2412 18.4538 19.3682 18.8896C19.4993 19.3255 19.6877 19.6979 19.9331 20.0068C20.1785 20.3115 20.4727 20.5464 20.8154 20.7114C21.1582 20.8765 21.5454 20.959 21.9771 20.959C22.4764 20.959 22.9144 20.8617 23.291 20.667C23.6719 20.4681 23.9681 20.193 24.1797 19.8418C24.3913 19.4906 24.4992 19.0801 24.5034 18.6104L24.5098 18.4072H22.1548V17.2583H25.9189V18.3945C25.9189 18.9743 25.8258 19.499 25.6396 19.9688C25.4535 20.4385 25.1868 20.8426 24.8398 21.1812C24.4928 21.5155 24.076 21.7736 23.5894 21.9556C23.1027 22.1333 22.561 22.2222 21.9644 22.2222ZM27.874 22V12.8403H29.5181L32.4316 20.1401H32.5396L35.4531 12.8403H37.0972V22H35.7959V15.2842H35.0913L36.5767 13.0942L33.0093 22H31.9556L28.3945 13.0942L29.8735 15.2842H29.1753V22H27.874ZM40.6899 19.0864L40.6201 17.1694H40.9185L44.7017 12.8403H46.3901L42.7212 16.96L41.9658 17.6392L40.6899 19.0864ZM39.3887 22V12.8403H40.8105V22H39.3887ZM44.9111 22L41.731 17.6265L42.7339 16.6616L46.6885 22H44.9111ZM28.2168 38.1714C27.5355 38.1714 26.9346 38.0592 26.4141 37.835C25.8936 37.6107 25.4852 37.2996 25.189 36.9019C24.8927 36.4998 24.7446 36.0407 24.7446 35.5244V35.5117C24.7446 35.1266 24.8293 34.7733 24.9985 34.4517C25.172 34.13 25.4111 33.8592 25.7158 33.6392C26.0247 33.4149 26.3781 33.2604 26.7759 33.1758V33.144C26.2638 32.9959 25.8512 32.742 25.5381 32.3823C25.2292 32.0226 25.0747 31.5994 25.0747 31.1128V31.1001C25.0747 30.6304 25.208 30.2135 25.4746 29.8496C25.7454 29.4857 26.1178 29.1979 26.5918 28.9863C27.0658 28.7747 27.6074 28.6689 28.2168 28.6689C28.8262 28.6689 29.3657 28.7747 29.8354 28.9863C30.3094 29.1979 30.6797 29.4857 30.9463 29.8496C31.2171 30.2135 31.3525 30.6304 31.3525 31.1001V31.1128C31.3525 31.5994 31.1981 32.0226 30.8892 32.3823C30.5802 32.742 30.1698 32.9959 29.6577 33.144V33.1758C30.0597 33.2604 30.411 33.4149 30.7114 33.6392C31.0161 33.8592 31.2531 34.13 31.4224 34.4517C31.5959 34.7733 31.6826 35.1266 31.6826 35.5117V35.5244C31.6826 36.0407 31.5345 36.4998 31.2383 36.9019C30.9463 37.2996 30.5379 37.6107 30.0132 37.835C29.4927 38.0592 28.8939 38.1714 28.2168 38.1714ZM28.2168 37.0288C28.6061 37.0288 28.951 36.9611 29.2515 36.8257C29.5519 36.686 29.7868 36.4977 29.9561 36.2607C30.1296 36.0195 30.2163 35.7445 30.2163 35.4355V35.4229C30.2163 35.1097 30.1317 34.8325 29.9624 34.5913C29.7931 34.3459 29.5562 34.1554 29.2515 34.02C28.951 33.8804 28.6061 33.8105 28.2168 33.8105C27.8232 33.8105 27.4762 33.8804 27.1758 34.02C26.8753 34.1554 26.6405 34.3459 26.4712 34.5913C26.3019 34.8325 26.2173 35.1097 26.2173 35.4229V35.4355C26.2173 35.7445 26.3019 36.0195 26.4712 36.2607C26.6447 36.4977 26.8817 36.686 27.1821 36.8257C27.4826 36.9611 27.8275 37.0288 28.2168 37.0288ZM28.2168 32.6616C28.5553 32.6616 28.8537 32.6024 29.1118 32.4839C29.3742 32.3612 29.5773 32.1919 29.7212 31.9761C29.8651 31.7603 29.937 31.5148 29.937 31.2397V31.2271C29.937 30.9478 29.863 30.7002 29.7148 30.4844C29.571 30.2686 29.37 30.1014 29.1118 29.9829C28.8537 29.8602 28.5553 29.7988 28.2168 29.7988C27.8783 29.7988 27.5778 29.8602 27.3154 29.9829C27.0573 30.1014 26.8542 30.2686 26.7061 30.4844C26.5622 30.7002 26.4902 30.9478 26.4902 31.2271V31.2397C26.4902 31.5148 26.5622 31.7603 26.7061 31.9761C26.8542 32.1919 27.0573 32.3612 27.3154 32.4839C27.5736 32.6024 27.874 32.6616 28.2168 32.6616ZM33.8789 38L37.916 30.1416V30.0464H33.1172V28.8403H39.3569V30.0781L35.377 38H33.8789Z" fill="white"/>
+            </g>
+          </g>
+          <defs>
+            <linearGradient id="nav-paint4" x1="10" y1="30" x2="54" y2="30" gradientUnits="userSpaceOnUse"><stop stop-color="white" stop-opacity="0.38"/><stop offset="1" stop-color="white"/></linearGradient>
+            <linearGradient id="nav-paint5" x1="10" y1="30" x2="54" y2="30" gradientUnits="userSpaceOnUse"><stop stop-color="white" stop-opacity="0.3"/><stop offset="0.536458" stop-color="white" stop-opacity="0"/><stop offset="1" stop-color="white" stop-opacity="0.3"/></linearGradient>
+            <clipPath id="nav-clip0"><rect width="64" height="64" fill="white"/></clipPath>
+            <clipPath id="nav-clip1"><rect x="2" y="2" width="60" height="60" rx="3" fill="white"/></clipPath>
+          </defs>
+        </svg>
+        <span class="font-semibold text-base">GMK87</span>
+      </a>
+      <div class="hidden md:flex items-center gap-6 text-sm nav-links" style="color:inherit;">
+        <a href="#features" style="color:inherit;" class="opacity-60 hover:opacity-100 transition-opacity no-underline">Features</a>
+        <a href="#download" style="color:inherit;" class="opacity-60 hover:opacity-100 transition-opacity no-underline">Download</a>
+        <a href="#cli" style="color:inherit;" class="opacity-60 hover:opacity-100 transition-opacity no-underline">CLI</a>
+        <a href="#api" style="color:inherit;" class="opacity-60 hover:opacity-100 transition-opacity no-underline">API</a>
+        <a href="https://github.com/codedgar/gmk87-node" style="color:inherit;" class="opacity-60 hover:opacity-100 transition-opacity no-underline">GitHub</a>
+      </div>
+      <!-- Mobile menu button -->
+      <button id="mobile-menu-btn" class="md:hidden p-2 opacity-60">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg>
+      </button>
+    </div>
+    <!-- Mobile menu -->
+    <div id="mobile-menu" class="hidden md:hidden border-t px-6 pb-4" style="border-color:inherit;">
+      <a href="#features" class="block py-2 text-sm opacity-70" style="color:inherit;">Features</a>
+      <a href="#download" class="block py-2 text-sm opacity-70" style="color:inherit;">Download</a>
+      <a href="#cli" class="block py-2 text-sm opacity-70" style="color:inherit;">CLI</a>
+      <a href="#api" class="block py-2 text-sm opacity-70" style="color:inherit;">API</a>
+      <a href="https://github.com/codedgar/gmk87-node" class="block py-2 text-sm opacity-70" style="color:inherit;">GitHub</a>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="bg-white pt-20 pb-0 px-6">
+    <div class="max-w-3xl mx-auto text-center">
+      <!-- App icon -->
+      <div class="flex justify-center mb-8">
+        <svg width="96" height="96" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="drop-shadow-lg" role="img" aria-label="GMK87 Configurator icon">
+          <g clip-path="url(#hero-clip0)">
+            <g filter="url(#hero-shadow)">
+              <g clip-path="url(#hero-clip1)">
+                <rect x="2" y="2" width="60" height="60" rx="3" fill="#333333"/>
+                <g opacity="0.5">
+                  <mask id="hero-mask0" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="2" y="47" width="60" height="15">
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M10 47H2V62H62V47H54V50C54 52.7614 51.7614 55 49 55H15C12.2386 55 10 52.7614 10 50V47Z" fill="#333333"/>
+                  </mask>
+                  <g mask="url(#hero-mask0)">
+                    <rect x="18" y="47" width="28" height="15" fill="black"/>
+                    <path d="M2 62H18V45H2V62Z" fill="url(#hero-p0)"/>
+                    <path d="M62 62H46V45H62V62Z" fill="url(#hero-p1)"/>
+                  </g>
+                </g>
+                <g opacity="0.3">
+                  <mask id="hero-mask1" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="2" y="2" width="60" height="8">
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M62 2H2V10H10C10 7.23858 12.2386 5 15 5H49C51.7614 5 54 7.23858 54 10H62V2Z" fill="#333333"/>
+                  </mask>
+                  <g mask="url(#hero-mask1)">
+                    <rect x="18" y="2" width="28" height="8" fill="white"/>
+                    <path d="M2 2H18V10H2V2Z" fill="url(#hero-p2)"/>
+                    <path d="M62 2H46V10H62V2Z" fill="url(#hero-p3)"/>
+                  </g>
+                </g>
+              </g>
+              <rect x="10" y="5" width="44" height="50" rx="5" fill="url(#hero-p4)" fill-opacity="0.2"/>
+              <rect x="10.5" y="5.5" width="43" height="49" rx="4.5" stroke="url(#hero-p5)" stroke-opacity="0.4"/>
+              <path d="M21.9644 22.2222C21.3084 22.2222 20.7202 22.1121 20.1997 21.8921C19.6792 21.6678 19.2349 21.3462 18.8667 20.9272C18.4985 20.5083 18.215 20.0047 18.0161 19.4165C17.8215 18.8241 17.7241 18.1597 17.7241 17.4233V17.4106C17.7241 16.4373 17.8976 15.5931 18.2446 14.8779C18.5916 14.1585 19.0825 13.6021 19.7173 13.2085C20.3521 12.8149 21.0947 12.6182 21.9453 12.6182C22.6393 12.6182 23.2593 12.7409 23.8052 12.9863C24.3511 13.2318 24.7996 13.5767 25.1509 14.021C25.5021 14.4611 25.7327 14.9774 25.8428 15.5698L25.8491 15.6333H24.4209L24.4019 15.5698C24.241 15.0282 23.9469 14.6113 23.5195 14.3193C23.0964 14.0273 22.5716 13.8813 21.9453 13.8813C21.3825 13.8813 20.8937 14.0252 20.479 14.313C20.0643 14.6007 19.7427 15.0091 19.5142 15.5381C19.2899 16.0628 19.1777 16.6849 19.1777 17.4043V17.417C19.1777 17.9629 19.2412 18.4538 19.3682 18.8896C19.4993 19.3255 19.6877 19.6979 19.9331 20.0068C20.1785 20.3115 20.4727 20.5464 20.8154 20.7114C21.1582 20.8765 21.5454 20.959 21.9771 20.959C22.4764 20.959 22.9144 20.8617 23.291 20.667C23.6719 20.4681 23.9681 20.193 24.1797 19.8418C24.3913 19.4906 24.4992 19.0801 24.5034 18.6104L24.5098 18.4072H22.1548V17.2583H25.9189V18.3945C25.9189 18.9743 25.8258 19.499 25.6396 19.9688C25.4535 20.4385 25.1868 20.8426 24.8398 21.1812C24.4928 21.5155 24.076 21.7736 23.5894 21.9556C23.1027 22.1333 22.561 22.2222 21.9644 22.2222ZM27.874 22V12.8403H29.5181L32.4316 20.1401H32.5396L35.4531 12.8403H37.0972V22H35.7959V15.2842H35.0913L36.5767 13.0942L33.0093 22H31.9556L28.3945 13.0942L29.8735 15.2842H29.1753V22H27.874ZM40.6899 19.0864L40.6201 17.1694H40.9185L44.7017 12.8403H46.3901L42.7212 16.96L41.9658 17.6392L40.6899 19.0864ZM39.3887 22V12.8403H40.8105V22H39.3887ZM44.9111 22L41.731 17.6265L42.7339 16.6616L46.6885 22H44.9111ZM28.2168 38.1714C27.5355 38.1714 26.9346 38.0592 26.4141 37.835C25.8936 37.6107 25.4852 37.2996 25.189 36.9019C24.8927 36.4998 24.7446 36.0407 24.7446 35.5244V35.5117C24.7446 35.1266 24.8293 34.7733 24.9985 34.4517C25.172 34.13 25.4111 33.8592 25.7158 33.6392C26.0247 33.4149 26.3781 33.2604 26.7759 33.1758V33.144C26.2638 32.9959 25.8512 32.742 25.5381 32.3823C25.2292 32.0226 25.0747 31.5994 25.0747 31.1128V31.1001C25.0747 30.6304 25.208 30.2135 25.4746 29.8496C25.7454 29.4857 26.1178 29.1979 26.5918 28.9863C27.0658 28.7747 27.6074 28.6689 28.2168 28.6689C28.8262 28.6689 29.3657 28.7747 29.8354 28.9863C30.3094 29.1979 30.6797 29.4857 30.9463 29.8496C31.2171 30.2135 31.3525 30.6304 31.3525 31.1001V31.1128C31.3525 31.5994 31.1981 32.0226 30.8892 32.3823C30.5802 32.742 30.1698 32.9959 29.6577 33.144V33.1758C30.0597 33.2604 30.411 33.4149 30.7114 33.6392C31.0161 33.8592 31.2531 34.13 31.4224 34.4517C31.5959 34.7733 31.6826 35.1266 31.6826 35.5117V35.5244C31.6826 36.0407 31.5345 36.4998 31.2383 36.9019C30.9463 37.2996 30.5379 37.6107 30.0132 37.835C29.4927 38.0592 28.8939 38.1714 28.2168 38.1714ZM28.2168 37.0288C28.6061 37.0288 28.951 36.9611 29.2515 36.8257C29.5519 36.686 29.7868 36.4977 29.9561 36.2607C30.1296 36.0195 30.2163 35.7445 30.2163 35.4355V35.4229C30.2163 35.1097 30.1317 34.8325 29.9624 34.5913C29.7931 34.3459 29.5562 34.1554 29.2515 34.02C28.951 33.8804 28.6061 33.8105 28.2168 33.8105C27.8232 33.8105 27.4762 33.8804 27.1758 34.02C26.8753 34.1554 26.6405 34.3459 26.4712 34.5913C26.3019 34.8325 26.2173 35.1097 26.2173 35.4229V35.4355C26.2173 35.7445 26.3019 36.0195 26.4712 36.2607C26.6447 36.4977 26.8817 36.686 27.1821 36.8257C27.4826 36.9611 27.8275 37.0288 28.2168 37.0288ZM28.2168 32.6616C28.5553 32.6616 28.8537 32.6024 29.1118 32.4839C29.3742 32.3612 29.5773 32.1919 29.7212 31.9761C29.8651 31.7603 29.937 31.5148 29.937 31.2397V31.2271C29.937 30.9478 29.863 30.7002 29.7148 30.4844C29.571 30.2686 29.37 30.1014 29.1118 29.9829C28.8537 29.8602 28.5553 29.7988 28.2168 29.7988C27.8783 29.7988 27.5778 29.8602 27.3154 29.9829C27.0573 30.1014 26.8542 30.2686 26.7061 30.4844C26.5622 30.7002 26.4902 30.9478 26.4902 31.2271V31.2397C26.4902 31.5148 26.5622 31.7603 26.7061 31.9761C26.8542 32.1919 27.0573 32.3612 27.3154 32.4839C27.5736 32.6024 27.874 32.6616 28.2168 32.6616ZM33.8789 38L37.916 30.1416V30.0464H33.1172V28.8403H39.3569V30.0781L35.377 38H33.8789Z" fill="white"/>
+            </g>
+          </g>
+          <defs>
+            <filter id="hero-shadow" x="-6" y="-3" width="76" height="76" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+              <feFlood flood-opacity="0" result="bg"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="a"/><feOffset dy="3"/><feGaussianBlur stdDeviation="3"/><feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.4 0"/><feBlend mode="normal" in2="bg" result="s"/><feBlend mode="normal" in="SourceGraphic" in2="s" result="shape"/>
+            </filter>
+            <linearGradient id="hero-p0" x1="13.11" y1="56.04" x2="7.79" y2="50.04" gradientUnits="userSpaceOnUse"><stop offset="0.089"/><stop offset="1" stop-opacity="0"/></linearGradient>
+            <linearGradient id="hero-p1" x1="50.89" y1="56.04" x2="56.21" y2="50.04" gradientUnits="userSpaceOnUse"><stop offset="0.089"/><stop offset="1" stop-opacity="0"/></linearGradient>
+            <linearGradient id="hero-p2" x1="13.11" y1="4.81" x2="11.32" y2="9.1" gradientUnits="userSpaceOnUse"><stop offset="0.089" stop-color="white"/><stop offset="1" stop-color="white" stop-opacity="0"/></linearGradient>
+            <linearGradient id="hero-p3" x1="50.89" y1="4.81" x2="52.68" y2="9.1" gradientUnits="userSpaceOnUse"><stop offset="0.089" stop-color="white"/><stop offset="1" stop-color="white" stop-opacity="0"/></linearGradient>
+            <linearGradient id="hero-p4" x1="10" y1="30" x2="54" y2="30" gradientUnits="userSpaceOnUse"><stop stop-color="white" stop-opacity="0.38"/><stop offset="1" stop-color="white"/></linearGradient>
+            <linearGradient id="hero-p5" x1="10" y1="30" x2="54" y2="30" gradientUnits="userSpaceOnUse"><stop stop-color="white" stop-opacity="0.3"/><stop offset="0.536" stop-color="white" stop-opacity="0"/><stop offset="1" stop-color="white" stop-opacity="0.3"/></linearGradient>
+            <clipPath id="hero-clip0"><rect width="64" height="64" fill="white"/></clipPath>
+            <clipPath id="hero-clip1"><rect x="2" y="2" width="60" height="60" rx="3" fill="white"/></clipPath>
+          </defs>
+        </svg>
+      </div>
+      <h1 class="text-4xl sm:text-5xl font-bold tracking-tight text-gray-900 mb-4">GMK87 Configurator</h1>
+      <p class="text-lg text-gray-500 mb-10 max-w-xl mx-auto">Control your Zuoya GMK87 keyboard. Upload images, configure lighting, sync the clock.</p>
+
+      <!-- OS-detected download button -->
+      <div id="download" class="mb-4">
+        <a id="download-btn" href="https://github.com/codedgar/gmk87-node/releases/latest" class="inline-flex items-center gap-2 bg-gray-900 text-white px-6 py-3 rounded-xl text-base font-medium hover:bg-gray-700 transition-colors">
+          <span id="download-icon">
+            <!-- Default: generic download icon, replaced by JS -->
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          </span>
+          <span id="download-text">Download</span>
+        </a>
+      </div>
+      <div class="flex flex-wrap justify-center gap-x-4 gap-y-1 text-sm text-gray-400">
+        <span id="alt-downloads"></span>
+        <a href="https://github.com/codedgar/gmk87-node" class="hover:text-gray-600 transition-colors">View on GitHub</a>
+      </div>
+    </div>
+
+    <!-- App screenshot connector - bridges hero into features -->
+    <div class="relative mt-16 pb-0">
+      <div class="max-w-4xl mx-auto px-6">
+        <img
+          src="screenshot.png"
+          alt="GMK87 Configurator app screenshot"
+          class="w-full block rounded-t-2xl"
+          onerror="this.nextElementSibling.style.display='flex';this.style.display='none';"
+        >
+        <div class="hidden aspect-[16/10] items-center justify-center">
+          <span class="text-sm text-gray-400">Drop screenshot.png in docs/</span>
+        </div>
+      </div>
+      <div class="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-b from-transparent to-gray-50 pointer-events-none"></div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section id="features" class="bg-gray-50 pt-10 pb-20 px-6">
+    <div class="max-w-5xl mx-auto">
+      <h2 class="text-2xl sm:text-3xl font-bold text-center text-gray-900 mb-4">Everything you need</h2>
+      <p class="text-center text-gray-500 mb-14 max-w-lg mx-auto">Full control over your GMK87 display, lighting, and clock. No proprietary software required.</p>
+
+      <div class="grid md:grid-cols-2 gap-8 items-start">
+        <!-- Left: clickable feature cards -->
+        <div class="flex flex-col gap-3">
+          <!-- Upload Images -->
+          <button type="button" data-feature="upload" class="feature-card feature-card--active w-full text-left rounded-xl border-2 border-blue-300 bg-white p-4 flex items-start gap-4 transition-all duration-200 cursor-pointer">
+            <div class="w-10 h-10 shrink-0 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center">
+              <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" class="text-gray-700"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+            </div>
+            <div>
+              <h3 class="font-semibold text-gray-900 text-sm mb-0.5">Upload Images</h3>
+              <p class="text-sm text-gray-500 leading-snug">Upload static images or GIFs to the 240&times;135 display. Supports PNG, JPG, BMP, and animated GIFs up to 36 frames.</p>
+            </div>
+          </button>
+          <!-- Configure Lighting -->
+          <button type="button" data-feature="lighting" class="feature-card w-full text-left rounded-xl border-2 border-gray-200 bg-white p-4 flex items-start gap-4 transition-all duration-200 cursor-pointer hover:border-gray-400">
+            <div class="w-10 h-10 shrink-0 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center">
+              <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" class="text-gray-700"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 1 1 7.072 0l-.548.547A3.374 3.374 0 0 0 14 18.469V19a2 2 0 1 1-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+            </div>
+            <div>
+              <h3 class="font-semibold text-gray-900 text-sm mb-0.5">Configure Lighting</h3>
+              <p class="text-sm text-gray-500 leading-snug">19 underglow effects, 5 LED modes, custom RGB colors, and 8 built-in presets.</p>
+            </div>
+          </button>
+          <!-- Sync Time -->
+          <button type="button" data-feature="timesync" class="feature-card w-full text-left rounded-xl border-2 border-gray-200 bg-white p-4 flex items-start gap-4 transition-all duration-200 cursor-pointer hover:border-gray-400">
+            <div class="w-10 h-10 shrink-0 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center">
+              <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" class="text-gray-700"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+            </div>
+            <div>
+              <h3 class="font-semibold text-gray-900 text-sm mb-0.5">Sync Time</h3>
+              <p class="text-sm text-gray-500 leading-snug">Keep the keyboard clock accurate with one-click time sync.</p>
+            </div>
+          </button>
+        </div>
+
+        <!-- Right: screenshot that swaps per feature -->
+        <div class="relative">
+          <div class="rounded-2xl overflow-hidden">
+            <div data-feature-img="upload" class="feature-img-wrap">
+              <img src="screenshot-upload.png" alt="Upload images view" class="w-full block" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+              <div class="hidden aspect-[4/3] items-center justify-center bg-gray-100 rounded-2xl"><span class="text-xs text-gray-400">screenshot-upload.png</span></div>
+            </div>
+            <div data-feature-img="lighting" class="feature-img-wrap" style="display:none;">
+              <img src="screenshot-lighting.png" alt="Configure lighting view" class="w-full block" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+              <div class="hidden aspect-[4/3] items-center justify-center bg-gray-100 rounded-2xl"><span class="text-xs text-gray-400">screenshot-lighting.png</span></div>
+            </div>
+            <div data-feature-img="timesync" class="feature-img-wrap" style="display:none;">
+              <img src="screenshot-timesync.png" alt="Sync time view" class="w-full block" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+              <div class="hidden aspect-[4/3] items-center justify-center bg-gray-100 rounded-2xl"><span class="text-xs text-gray-400">screenshot-timesync.png</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Three Ways to Use -->
+  <section class="bg-white py-20 px-6">
+    <div class="max-w-3xl mx-auto">
+      <h2 class="text-2xl sm:text-3xl font-bold text-center text-gray-900 mb-4">Three ways to use</h2>
+      <p class="text-center text-gray-500 mb-14 max-w-lg mx-auto">Desktop app, command line, or Node.js library. Pick what fits your workflow.</p>
+
+      <div class="flex flex-col gap-5">
+        <!-- App card -->
+        <div class="rounded-2xl border border-gray-200 bg-white shadow-sm p-8 sm:p-10 flex flex-col sm:flex-row items-start gap-5">
+          <div class="w-12 h-12 shrink-0 rounded-xl bg-gray-900 flex items-center justify-center">
+            <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" class="text-white"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
+          </div>
+          <div class="flex-1">
+            <div class="flex items-center gap-3 mb-1">
+              <h3 class="font-semibold text-gray-900 text-lg">App</h3>
+              <span class="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full font-medium">Recommended for most users</span>
+            </div>
+            <p class="text-sm text-gray-500 leading-relaxed mb-4">Desktop application with full GUI. Upload images with drag and drop, pick colors visually, apply presets. Available for macOS, Windows, and Linux.</p>
+            <a href="#download" class="text-sm font-medium text-blue-500 hover:text-blue-600 transition-colors">Download &rarr;</a>
+          </div>
+        </div>
+
+        <!-- CLI card -->
+        <a href="#cli" class="block rounded-2xl border border-gray-200 bg-white shadow-sm p-8 sm:p-10 no-underline group hover:border-gray-300 transition-colors">
+          <div class="flex flex-col sm:flex-row items-start gap-5">
+            <div class="w-12 h-12 shrink-0 rounded-xl bg-gray-900 flex items-center justify-center">
+              <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" class="text-white"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+            </div>
+            <div class="flex-1">
+              <h3 class="font-semibold text-gray-900 text-lg mb-1">CLI</h3>
+              <p class="text-sm text-gray-500 leading-relaxed mb-4">Terminal tools for quick control. Script your setup or integrate into your workflow.</p>
+              <div class="rounded-lg bg-[#1a1d27] border border-gray-700 p-3 font-mono text-xs text-gray-300 overflow-hidden mb-4">
+                <span class="text-gray-500">$</span> npm run sendimage -- --slot0 cat.gif
+              </div>
+              <span class="text-sm font-medium text-blue-500 group-hover:text-blue-600 transition-colors">CLI docs &rarr;</span>
+            </div>
+          </div>
+        </a>
+
+        <!-- API card -->
+        <a href="#api" class="block rounded-2xl border border-gray-200 bg-white shadow-sm p-8 sm:p-10 no-underline group hover:border-gray-300 transition-colors">
+          <div class="flex flex-col sm:flex-row items-start gap-5">
+            <div class="w-12 h-12 shrink-0 rounded-xl bg-gray-900 flex items-center justify-center">
+              <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" class="text-white"><path d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z"/></svg>
+            </div>
+            <div class="flex-1">
+              <h3 class="font-semibold text-gray-900 text-lg mb-1">API</h3>
+              <p class="text-sm text-gray-500 leading-relaxed mb-4">Node.js library for programmatic control. Build your own tools on top of the protocol.</p>
+              <div class="rounded-lg bg-[#1a1d27] border border-gray-700 p-3 font-mono text-xs text-gray-300 overflow-hidden mb-4">
+                <span class="code-keyword">import</span> { uploadImage } <span class="code-keyword">from</span> <span class="code-string">'gmk87'</span>
+              </div>
+              <span class="text-sm font-medium text-blue-500 group-hover:text-blue-600 transition-colors">API docs &rarr;</span>
+            </div>
+          </div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Reassurance - closes the loop for casual users -->
+  <section class="bg-white py-16 px-6">
+    <div class="max-w-xl mx-auto text-center">
+      <h2 class="text-xl sm:text-2xl font-bold text-gray-900 mb-3">That's it for most people.</h2>
+      <p class="text-gray-500 text-sm leading-relaxed">Download the app, plug in your keyboard, and you're good to go. No terminal, no code, no setup required.</p>
+      <a href="#download" class="inline-block mt-6 text-sm font-medium text-blue-500 hover:text-blue-600 transition-colors">Download the app &rarr;</a>
+    </div>
+  </section>
+
+  <!-- CLI Reference -->
+  <section id="cli" class="bg-[#0f1117] text-gray-200 pt-20 pb-20 px-6">
+    <div class="max-w-4xl mx-auto">
+      <p class="text-sm text-gray-500 font-medium uppercase tracking-wider mb-2">Developer docs</p>
+      <p class="text-gray-400 text-sm mb-16">CLI commands, API reference, and protocol details. Optional, everything here is already built into the app.</p>
+
+      <h2 class="text-2xl sm:text-3xl font-bold text-white mb-2">CLI Reference</h2>
+      <p class="text-gray-400 mb-10">Terminal commands for controlling your GMK87 keyboard.</p>
+
+      <!-- Install -->
+      <div class="mb-10">
+        <h3 class="text-lg font-semibold text-white mb-3">Install</h3>
+        <pre class="bg-[#141620] border border-gray-800 rounded-lg p-4 text-sm font-mono overflow-x-auto"><code>git clone https://github.com/codedgar/gmk87-node.git
+cd gmk87-node
+npm install</code></pre>
+        <p class="text-sm text-gray-500 mt-2">On Linux, copy the udev rules so the keyboard is accessible without root:</p>
+        <pre class="bg-[#141620] border border-gray-800 rounded-lg p-4 text-sm font-mono overflow-x-auto mt-2"><code>sudo cp 50-gmk87.rules /etc/udev/rules.d/
+sudo udevadm control --reload-rules && sudo udevadm trigger</code></pre>
+      </div>
+
+      <!-- Commands table -->
+      <div class="mb-10">
+        <h3 class="text-lg font-semibold text-white mb-3">Commands</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-gray-800">
+                <th class="text-left py-2 pr-4 text-gray-400 font-medium">Command</th>
+                <th class="text-left py-2 text-gray-400 font-medium">Description</th>
+              </tr>
+            </thead>
+            <tbody class="font-mono">
+              <tr class="border-b border-gray-800/50">
+                <td class="py-2.5 pr-4"><code class="text-purple-300">npm run sendimage</code></td>
+                <td class="py-2.5 font-sans text-gray-400">Upload images to the keyboard display</td>
+              </tr>
+              <tr class="border-b border-gray-800/50">
+                <td class="py-2.5 pr-4"><code class="text-purple-300">npm run lights</code></td>
+                <td class="py-2.5 font-sans text-gray-400">Configure keyboard lighting</td>
+              </tr>
+              <tr class="border-b border-gray-800/50">
+                <td class="py-2.5 pr-4"><code class="text-purple-300">npm run preset</code></td>
+                <td class="py-2.5 font-sans text-gray-400">Load a lighting preset</td>
+              </tr>
+              <tr class="border-b border-gray-800/50">
+                <td class="py-2.5 pr-4"><code class="text-purple-300">npm run timesync</code></td>
+                <td class="py-2.5 font-sans text-gray-400">Sync the keyboard clock</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- sendimage examples -->
+      <div class="mb-10">
+        <h3 class="text-lg font-semibold text-white mb-3">Image Upload</h3>
+        <div class="space-y-3">
+          <div>
+            <p class="text-sm text-gray-400 mb-1.5">Upload to both slots:</p>
+            <pre class="bg-[#141620] border border-gray-800 rounded-lg p-4 text-sm font-mono overflow-x-auto"><code>npm run sendimage -- --slot0 cat.png --slot1 dog.jpg</code></pre>
+          </div>
+          <div>
+            <p class="text-sm text-gray-400 mb-1.5">Upload an animated GIF with custom frame delay:</p>
+            <pre class="bg-[#141620] border border-gray-800 rounded-lg p-4 text-sm font-mono overflow-x-auto"><code>npm run sendimage -- --slot0 animation.gif --ms 150</code></pre>
+          </div>
+          <div>
+            <p class="text-sm text-gray-400 mb-1.5">Upload a single image to slot 1:</p>
+            <pre class="bg-[#141620] border border-gray-800 rounded-lg p-4 text-sm font-mono overflow-x-auto"><code>npm run sendimage -- --file image.png --slot 1</code></pre>
+          </div>
+        </div>
+        <div class="mt-4 overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-gray-800">
+                <th class="text-left py-2 pr-4 text-gray-400 font-medium">Flag</th>
+                <th class="text-left py-2 text-gray-400 font-medium">Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="border-b border-gray-800/50">
+                <td class="py-2 pr-4 font-mono text-purple-300">--slot0 &lt;path&gt;</td>
+                <td class="py-2 text-gray-400">Image file for slot 0</td>
+              </tr>
+              <tr class="border-b border-gray-800/50">
+                <td class="py-2 pr-4 font-mono text-purple-300">--slot1 &lt;path&gt;</td>
+                <td class="py-2 text-gray-400">Image file for slot 1</td>
+              </tr>
+              <tr class="border-b border-gray-800/50">
+                <td class="py-2 pr-4 font-mono text-purple-300">--file &lt;path&gt;</td>
+                <td class="py-2 text-gray-400">Single image file</td>
+              </tr>
+              <tr class="border-b border-gray-800/50">
+                <td class="py-2 pr-4 font-mono text-purple-300">--slot &lt;0|1&gt;</td>
+                <td class="py-2 text-gray-400">Target slot (default: 0)</td>
+              </tr>
+              <tr class="border-b border-gray-800/50">
+                <td class="py-2 pr-4 font-mono text-purple-300">--ms &lt;number&gt;</td>
+                <td class="py-2 text-gray-400">Animation delay in ms (min 60, default 100)</td>
+              </tr>
+              <tr class="border-b border-gray-800/50">
+                <td class="py-2 pr-4 font-mono text-purple-300">--show &lt;0|1|2&gt;</td>
+                <td class="py-2 text-gray-400">Display mode after upload</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- lights examples -->
+      <div class="mb-10">
+        <h3 class="text-lg font-semibold text-white mb-3">Lighting Config</h3>
+        <div class="space-y-3">
+          <div>
+            <p class="text-sm text-gray-400 mb-1.5">Set underglow effect and brightness:</p>
+            <pre class="bg-[#141620] border border-gray-800 rounded-lg p-4 text-sm font-mono overflow-x-auto"><code>npm run lights -- --effect rainbow-cycle --brightness 5</code></pre>
+          </div>
+          <div>
+            <p class="text-sm text-gray-400 mb-1.5">Set custom RGB color with breathing effect:</p>
+            <pre class="bg-[#141620] border border-gray-800 rounded-lg p-4 text-sm font-mono overflow-x-auto"><code>npm run lights -- --effect breathing --red 255 --green 0 --blue 0</code></pre>
+          </div>
+          <div>
+            <p class="text-sm text-gray-400 mb-1.5">Set LED color and mode:</p>
+            <pre class="bg-[#141620] border border-gray-800 rounded-lg p-4 text-sm font-mono overflow-x-auto"><code>npm run lights -- --led-color blue --led-mode 3</code></pre>
+          </div>
+        </div>
+        <div class="mt-4 overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-gray-800">
+                <th class="text-left py-2 pr-4 text-gray-400 font-medium">Flag</th>
+                <th class="text-left py-2 text-gray-400 font-medium">Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="border-b border-gray-800/50">
+                <td class="py-2 pr-4 font-mono text-purple-300">--effect &lt;name&gt;</td>
+                <td class="py-2 text-gray-400">Underglow effect (0-18 or name)</td>
+              </tr>
+              <tr class="border-b border-gray-800/50">
+                <td class="py-2 pr-4 font-mono text-purple-300">--brightness &lt;0-9&gt;</td>
+                <td class="py-2 text-gray-400">Brightness (0=off, 9=max)</td>
+              </tr>
+              <tr class="border-b border-gray-800/50">
+                <td class="py-2 pr-4 font-mono text-purple-300">--speed &lt;0-9&gt;</td>
+                <td class="py-2 text-gray-400">Effect speed (0=fast, 9=slow)</td>
+              </tr>
+              <tr class="border-b border-gray-800/50">
+                <td class="py-2 pr-4 font-mono text-purple-300">--red / --green / --blue</td>
+                <td class="py-2 text-gray-400">RGB values (0-255 each)</td>
+              </tr>
+              <tr class="border-b border-gray-800/50">
+                <td class="py-2 pr-4 font-mono text-purple-300">--led-mode &lt;0-4&gt;</td>
+                <td class="py-2 text-gray-400">LED mode</td>
+              </tr>
+              <tr class="border-b border-gray-800/50">
+                <td class="py-2 pr-4 font-mono text-purple-300">--led-color &lt;name&gt;</td>
+                <td class="py-2 text-gray-400">LED color (red, blue, green, etc.)</td>
+              </tr>
+              <tr class="border-b border-gray-800/50">
+                <td class="py-2 pr-4 font-mono text-purple-300">--show-image &lt;0|1|2&gt;</td>
+                <td class="py-2 text-gray-400">Display mode (0=time, 1=slot 0, 2=slot 1)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Preset examples -->
+      <div class="mb-10">
+        <h3 class="text-lg font-semibold text-white mb-3">Presets</h3>
+        <div class="space-y-3">
+          <div>
+            <p class="text-sm text-gray-400 mb-1.5">Apply a preset:</p>
+            <pre class="bg-[#141620] border border-gray-800 rounded-lg p-4 text-sm font-mono overflow-x-auto"><code>npm run preset gaming</code></pre>
+          </div>
+          <div>
+            <p class="text-sm text-gray-400 mb-1.5">List all available presets:</p>
+            <pre class="bg-[#141620] border border-gray-800 rounded-lg p-4 text-sm font-mono overflow-x-auto"><code>npm run preset -- --list</code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- API Reference -->
+  <section id="api" class="bg-[#141620] text-gray-200 py-20 px-6">
+    <div class="max-w-4xl mx-auto">
+      <h2 class="text-2xl sm:text-3xl font-bold text-white mb-2">API Reference</h2>
+      <p class="text-gray-400 mb-10">Node.js library for programmatic control of the GMK87 keyboard.</p>
+
+      <!-- Install -->
+      <div class="mb-10">
+        <h3 class="text-lg font-semibold text-white mb-3">Install</h3>
+        <pre class="bg-[#0f1117] border border-gray-800 rounded-lg p-4 text-sm font-mono overflow-x-auto"><code>npm install codedgar/gmk87-node</code></pre>
+      </div>
+
+      <!-- Import -->
+      <div class="mb-10">
+        <h3 class="text-lg font-semibold text-white mb-3">Import</h3>
+        <pre class="bg-[#0f1117] border border-gray-800 rounded-lg p-4 text-sm font-mono overflow-x-auto"><code><span class="code-comment">// Named imports</span>
+<span class="code-keyword">import</span> { uploadImage, setLighting, syncTime } <span class="code-keyword">from</span> <span class="code-string">'gmk87-hid-uploader/src/api.js'</span>
+
+<span class="code-comment">// Default import</span>
+<span class="code-keyword">import</span> gmk87 <span class="code-keyword">from</span> <span class="code-string">'gmk87-hid-uploader/src/api.js'</span></code></pre>
+      </div>
+
+      <!-- Functions -->
+      <div class="space-y-8">
+
+        <!-- uploadImage -->
+        <div class="rounded-xl border border-gray-800 bg-[#0f1117] overflow-hidden">
+          <div class="px-5 py-4 border-b border-gray-800">
+            <code class="text-base"><span class="code-fn">uploadImage</span><span class="code-punct">(</span>imagePath, slot?, options?<span class="code-punct">)</span></code>
+          </div>
+          <div class="px-5 py-4">
+            <p class="text-sm text-gray-400 mb-3">Upload an image or animated GIF to the keyboard display. Supports PNG, JPG, BMP, and GIF (up to 36 frames).</p>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm mb-4">
+                <thead><tr class="border-b border-gray-800"><th class="text-left py-1.5 pr-4 text-gray-500 font-medium">Param</th><th class="text-left py-1.5 pr-4 text-gray-500 font-medium">Type</th><th class="text-left py-1.5 text-gray-500 font-medium">Description</th></tr></thead>
+                <tbody>
+                  <tr class="border-b border-gray-800/50"><td class="py-1.5 pr-4 font-mono text-purple-300">imagePath</td><td class="py-1.5 pr-4 text-gray-500">string</td><td class="py-1.5 text-gray-400">Path to the image file</td></tr>
+                  <tr class="border-b border-gray-800/50"><td class="py-1.5 pr-4 font-mono text-purple-300">slot</td><td class="py-1.5 pr-4 text-gray-500">number</td><td class="py-1.5 text-gray-400">Target slot: 0 or 1 (default: 0)</td></tr>
+                  <tr class="border-b border-gray-800/50"><td class="py-1.5 pr-4 font-mono text-purple-300">options.slot0File</td><td class="py-1.5 pr-4 text-gray-500">string</td><td class="py-1.5 text-gray-400">Image path for slot 0</td></tr>
+                  <tr class="border-b border-gray-800/50"><td class="py-1.5 pr-4 font-mono text-purple-300">options.slot1File</td><td class="py-1.5 pr-4 text-gray-500">string</td><td class="py-1.5 text-gray-400">Image path for slot 1</td></tr>
+                  <tr class="border-b border-gray-800/50"><td class="py-1.5 pr-4 font-mono text-purple-300">options.frameDuration</td><td class="py-1.5 pr-4 text-gray-500">number</td><td class="py-1.5 text-gray-400">Animation delay in ms (min 60)</td></tr>
+                  <tr><td class="py-1.5 pr-4 font-mono text-purple-300">options.showAfter</td><td class="py-1.5 pr-4 text-gray-500">boolean</td><td class="py-1.5 text-gray-400">Display image after upload (default: true)</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <pre class="bg-[#141620] border border-gray-800 rounded-lg p-4 text-sm font-mono overflow-x-auto"><code><span class="code-keyword">await</span> <span class="code-fn">uploadImage</span>(<span class="code-string">'./cat.png'</span>, <span class="code-number">0</span>)
+
+<span class="code-comment">// Upload to both slots</span>
+<span class="code-keyword">await</span> <span class="code-fn">uploadImage</span>(<span class="code-string">'./cat.png'</span>, <span class="code-number">0</span>, {
+  slot0File: <span class="code-string">'./cat.png'</span>,
+  slot1File: <span class="code-string">'./dog.jpg'</span>
+})
+
+<span class="code-comment">// Upload animated GIF</span>
+<span class="code-keyword">await</span> <span class="code-fn">uploadImage</span>(<span class="code-string">'./animation.gif'</span>, <span class="code-number">0</span>, { frameDuration: <span class="code-number">150</span> })</code></pre>
+          </div>
+        </div>
+
+        <!-- setLighting -->
+        <div class="rounded-xl border border-gray-800 bg-[#0f1117] overflow-hidden">
+          <div class="px-5 py-4 border-b border-gray-800">
+            <code class="text-base"><span class="code-fn">setLighting</span><span class="code-punct">(</span>changes<span class="code-punct">)</span></code>
+          </div>
+          <div class="px-5 py-4">
+            <p class="text-sm text-gray-400 mb-3">Configure underglow and LED settings. Uses read-modify-write to preserve unspecified settings.</p>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm mb-4">
+                <thead><tr class="border-b border-gray-800"><th class="text-left py-1.5 pr-4 text-gray-500 font-medium">Param</th><th class="text-left py-1.5 pr-4 text-gray-500 font-medium">Type</th><th class="text-left py-1.5 text-gray-500 font-medium">Description</th></tr></thead>
+                <tbody>
+                  <tr class="border-b border-gray-800/50"><td class="py-1.5 pr-4 font-mono text-purple-300">changes.underglow.effect</td><td class="py-1.5 pr-4 text-gray-500">number</td><td class="py-1.5 text-gray-400">Effect index (0-18)</td></tr>
+                  <tr class="border-b border-gray-800/50"><td class="py-1.5 pr-4 font-mono text-purple-300">changes.underglow.brightness</td><td class="py-1.5 pr-4 text-gray-500">number</td><td class="py-1.5 text-gray-400">Brightness (0-9)</td></tr>
+                  <tr class="border-b border-gray-800/50"><td class="py-1.5 pr-4 font-mono text-purple-300">changes.underglow.speed</td><td class="py-1.5 pr-4 text-gray-500">number</td><td class="py-1.5 text-gray-400">Speed (0-9)</td></tr>
+                  <tr class="border-b border-gray-800/50"><td class="py-1.5 pr-4 font-mono text-purple-300">changes.underglow.hue</td><td class="py-1.5 pr-4 text-gray-500">object</td><td class="py-1.5 text-gray-400">{ red, green, blue } each 0-255</td></tr>
+                  <tr class="border-b border-gray-800/50"><td class="py-1.5 pr-4 font-mono text-purple-300">changes.led.mode</td><td class="py-1.5 pr-4 text-gray-500">number</td><td class="py-1.5 text-gray-400">LED mode (0-4)</td></tr>
+                  <tr class="border-b border-gray-800/50"><td class="py-1.5 pr-4 font-mono text-purple-300">changes.led.color</td><td class="py-1.5 pr-4 text-gray-500">number</td><td class="py-1.5 text-gray-400">LED color (0-8)</td></tr>
+                  <tr><td class="py-1.5 pr-4 font-mono text-purple-300">changes.showImage</td><td class="py-1.5 pr-4 text-gray-500">number</td><td class="py-1.5 text-gray-400">Display (0=time, 1=slot 0, 2=slot 1)</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <pre class="bg-[#141620] border border-gray-800 rounded-lg p-4 text-sm font-mono overflow-x-auto"><code><span class="code-keyword">await</span> <span class="code-fn">setLighting</span>({
+  underglow: {
+    effect: <span class="code-number">11</span>,         <span class="code-comment">// rainbow-cycle</span>
+    brightness: <span class="code-number">5</span>,
+    hue: { red: <span class="code-number">255</span>, green: <span class="code-number">0</span>, blue: <span class="code-number">128</span> }
+  },
+  led: { mode: <span class="code-number">3</span>, color: <span class="code-number">5</span> }  <span class="code-comment">// fixed blue</span>
+})</code></pre>
+          </div>
+        </div>
+
+        <!-- showSlot -->
+        <div class="rounded-xl border border-gray-800 bg-[#0f1117] overflow-hidden">
+          <div class="px-5 py-4 border-b border-gray-800">
+            <code class="text-base"><span class="code-fn">showSlot</span><span class="code-punct">(</span>slot<span class="code-punct">)</span></code>
+          </div>
+          <div class="px-5 py-4">
+            <p class="text-sm text-gray-400 mb-3">Switch the displayed image slot. Convenience wrapper for <code class="text-purple-300">setLighting({ showImage: slot })</code>.</p>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm mb-4">
+                <thead><tr class="border-b border-gray-800"><th class="text-left py-1.5 pr-4 text-gray-500 font-medium">Param</th><th class="text-left py-1.5 pr-4 text-gray-500 font-medium">Type</th><th class="text-left py-1.5 text-gray-500 font-medium">Description</th></tr></thead>
+                <tbody>
+                  <tr><td class="py-1.5 pr-4 font-mono text-purple-300">slot</td><td class="py-1.5 pr-4 text-gray-500">number</td><td class="py-1.5 text-gray-400">0 = time, 1 = slot 0, 2 = slot 1</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <pre class="bg-[#141620] border border-gray-800 rounded-lg p-4 text-sm font-mono overflow-x-auto"><code><span class="code-keyword">await</span> <span class="code-fn">showSlot</span>(<span class="code-number">1</span>)  <span class="code-comment">// show image in slot 0</span>
+<span class="code-keyword">await</span> <span class="code-fn">showSlot</span>(<span class="code-number">0</span>)  <span class="code-comment">// show time</span></code></pre>
+          </div>
+        </div>
+
+        <!-- syncTime -->
+        <div class="rounded-xl border border-gray-800 bg-[#0f1117] overflow-hidden">
+          <div class="px-5 py-4 border-b border-gray-800">
+            <code class="text-base"><span class="code-fn">syncTime</span><span class="code-punct">(</span>date?<span class="code-punct">)</span></code>
+          </div>
+          <div class="px-5 py-4">
+            <p class="text-sm text-gray-400 mb-3">Sync system time to keyboard. Uses read-modify-write to preserve all other settings.</p>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm mb-4">
+                <thead><tr class="border-b border-gray-800"><th class="text-left py-1.5 pr-4 text-gray-500 font-medium">Param</th><th class="text-left py-1.5 pr-4 text-gray-500 font-medium">Type</th><th class="text-left py-1.5 text-gray-500 font-medium">Description</th></tr></thead>
+                <tbody>
+                  <tr><td class="py-1.5 pr-4 font-mono text-purple-300">date</td><td class="py-1.5 pr-4 text-gray-500">Date</td><td class="py-1.5 text-gray-400">Date to sync (default: now)</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <pre class="bg-[#141620] border border-gray-800 rounded-lg p-4 text-sm font-mono overflow-x-auto"><code><span class="code-keyword">await</span> <span class="code-fn">syncTime</span>()                         <span class="code-comment">// sync current time</span>
+<span class="code-keyword">await</span> <span class="code-fn">syncTime</span>(<span class="code-keyword">new</span> Date(<span class="code-string">'2025-12-25'</span>))  <span class="code-comment">// sync specific date</span></code></pre>
+          </div>
+        </div>
+
+        <!-- readConfig -->
+        <div class="rounded-xl border border-gray-800 bg-[#0f1117] overflow-hidden">
+          <div class="px-5 py-4 border-b border-gray-800">
+            <code class="text-base"><span class="code-fn">readConfig</span><span class="code-punct">()</span></code>
+          </div>
+          <div class="px-5 py-4">
+            <p class="text-sm text-gray-400 mb-3">Read current keyboard configuration including lighting, display, and time settings.</p>
+            <pre class="bg-[#141620] border border-gray-800 rounded-lg p-4 text-sm font-mono overflow-x-auto"><code><span class="code-keyword">const</span> config = <span class="code-keyword">await</span> <span class="code-fn">readConfig</span>()
+console.<span class="code-fn">log</span>(config)
+<span class="code-comment">// {
+//   underglow: { effect, brightness, speed, orientation, rainbow, hue },
+//   led: { mode, saturation, rainbow, color },
+//   showImage,       // 0, 1, or 2
+//   image1Frames,    // frame count in slot 0
+//   image2Frames,    // frame count in slot 1
+//   frameDuration,   // animation delay in ms
+//   time: { second, minute, hour, dayOfWeek, date, month, year }
+// }</span></code></pre>
+          </div>
+        </div>
+
+        <!-- getKeyboardInfo -->
+        <div class="rounded-xl border border-gray-800 bg-[#0f1117] overflow-hidden">
+          <div class="px-5 py-4 border-b border-gray-800">
+            <code class="text-base"><span class="code-fn">getKeyboardInfo</span><span class="code-punct">()</span></code>
+          </div>
+          <div class="px-5 py-4">
+            <p class="text-sm text-gray-400 mb-3">Get keyboard device info without opening the device. Safe to call on any platform.</p>
+            <pre class="bg-[#141620] border border-gray-800 rounded-lg p-4 text-sm font-mono overflow-x-auto"><code><span class="code-keyword">const</span> info = <span class="code-fn">getKeyboardInfo</span>()
+<span class="code-comment">// { manufacturer, product, vendorId: 0x320f, productId: 0x5055 }</span></code></pre>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="bg-[#0a0c12] text-gray-500 py-12 px-6 border-t border-gray-800">
+    <div class="max-w-4xl mx-auto text-center text-sm">
+      <p class="mb-3">
+        MIT License. Made by <a href="https://github.com/codedgar" class="text-gray-400 hover:text-white transition-colors">Codedgar</a>
+      </p>
+      <p class="mb-4">
+        <a href="https://github.com/codedgar/gmk87-node" class="text-gray-400 hover:text-white transition-colors">GitHub</a>
+        <span class="mx-2">&middot;</span>
+        <a href="https://github.com/codedgar/gmk87-node/releases/latest" class="text-gray-400 hover:text-white transition-colors">Releases</a>
+      </p>
+      <p class="text-xs text-gray-600">
+        Protocol reverse-engineered from USB captures.
+        Python reference by <a href="https://github.com/nicojo" class="text-gray-500 hover:text-gray-300 transition-colors">Jochen Eisinger</a> (BSD).
+        C# reverse engineering by <a href="https://github.com/ikkentim" class="text-gray-500 hover:text-gray-300 transition-colors">@ikkentim</a>.
+      </p>
+    </div>
+  </footer>
+
+  <script>
+    // OS detection for download button
+    (function() {
+      const ua = navigator.userAgent;
+      const btn = document.getElementById('download-btn');
+      const textEl = document.getElementById('download-text');
+      const altEl = document.getElementById('alt-downloads');
+      const releasesUrl = 'https://github.com/codedgar/gmk87-node/releases/latest';
+
+      let os = 'unknown';
+      if (/Mac/i.test(ua)) os = 'mac';
+      else if (/Win/i.test(ua)) os = 'win';
+      else if (/Linux/i.test(ua)) os = 'linux';
+
+      const labels = {
+        mac: 'Download for macOS',
+        win: 'Download for Windows',
+        linux: 'Download for Linux',
+        unknown: 'View Downloads',
+      };
+
+      textEl.textContent = labels[os];
+
+      const others = { mac: 'Windows', win: 'macOS', linux: 'macOS' };
+      const others2 = { mac: 'Linux', win: 'Linux', linux: 'Windows' };
+
+      if (os !== 'unknown') {
+        altEl.innerHTML =
+          '<a href="' + releasesUrl + '" class="hover:text-gray-600 transition-colors">' + others[os] + '</a>' +
+          ' <span class="text-gray-300">&middot;</span> ' +
+          '<a href="' + releasesUrl + '" class="hover:text-gray-600 transition-colors">' + others2[os] + '</a>' +
+          ' <span class="text-gray-300">&middot;</span> ';
+      }
+    })();
+
+    // Feature card switcher
+    (function() {
+      var cards = document.querySelectorAll('.feature-card');
+      var wraps = document.querySelectorAll('.feature-img-wrap');
+
+      cards.forEach(function(card) {
+        card.addEventListener('click', function() {
+          var feature = card.getAttribute('data-feature');
+
+          // Update card borders
+          cards.forEach(function(c) {
+            c.classList.remove('feature-card--active', 'border-blue-300');
+            c.classList.add('border-gray-200');
+          });
+          card.classList.add('feature-card--active', 'border-blue-300');
+          card.classList.remove('border-gray-200');
+
+          // Swap screenshot visibility
+          wraps.forEach(function(wrap) {
+            if (wrap.getAttribute('data-feature-img') === feature) {
+              wrap.style.display = '';
+            } else {
+              wrap.style.display = 'none';
+            }
+          });
+        });
+      });
+    })();
+
+    // Navbar - swap to dark when over the CLI/API sections
+    (function() {
+      var navbar = document.getElementById('navbar');
+      var cliSection = document.getElementById('cli');
+      var observer = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          if (entry.isIntersecting || entry.boundingClientRect.top < 0) {
+            navbar.classList.add('nav-dark');
+          } else {
+            navbar.classList.remove('nav-dark');
+          }
+        });
+      }, { rootMargin: '0px 0px 0px 0px' });
+      observer.observe(cliSection);
+    })();
+
+    // Mobile menu toggle
+    (function() {
+      const btn = document.getElementById('mobile-menu-btn');
+      const menu = document.getElementById('mobile-menu');
+      btn.addEventListener('click', function() {
+        menu.classList.toggle('hidden');
+      });
+      // Close on link click
+      menu.querySelectorAll('a').forEach(function(a) {
+        a.addEventListener('click', function() {
+          menu.classList.add('hidden');
+        });
+      });
+    })();
+  </script>
+
+</body>
+</html>
