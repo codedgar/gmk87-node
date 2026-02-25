@@ -722,20 +722,20 @@ console.<span class="code-fn">log</span>(config)
   </footer>
 
   <script>
-    // OS detection for download button
+    // OS detection + direct download links via GitHub API
     (function() {
-      const ua = navigator.userAgent;
-      const btn = document.getElementById('download-btn');
-      const textEl = document.getElementById('download-text');
-      const altEl = document.getElementById('alt-downloads');
-      const releasesUrl = 'https://github.com/codedgar/gmk87-node/releases/latest';
+      var ua = navigator.userAgent;
+      var btn = document.getElementById('download-btn');
+      var textEl = document.getElementById('download-text');
+      var altEl = document.getElementById('alt-downloads');
+      var releasesUrl = 'https://github.com/codedgar/gmk87-node/releases/latest';
 
-      let os = 'unknown';
+      var os = 'unknown';
       if (/Mac/i.test(ua)) os = 'mac';
       else if (/Win/i.test(ua)) os = 'win';
       else if (/Linux/i.test(ua)) os = 'linux';
 
-      const labels = {
+      var labels = {
         mac: 'Download for macOS',
         win: 'Download for Windows',
         linux: 'Download for Linux',
@@ -744,16 +744,58 @@ console.<span class="code-fn">log</span>(config)
 
       textEl.textContent = labels[os];
 
-      const others = { mac: 'Windows', win: 'macOS', linux: 'macOS' };
-      const others2 = { mac: 'Linux', win: 'Linux', linux: 'Windows' };
+      // Asset matchers: pick the right file per platform
+      var matchers = {
+        mac: function(name) { return name.endsWith('.dmg'); },
+        win: function(name) { return name.endsWith('.exe'); },
+        linux: function(name) { return name.endsWith('.AppImage'); },
+      };
 
-      if (os !== 'unknown') {
-        altEl.innerHTML =
-          '<a href="' + releasesUrl + '" class="hover:text-gray-600 transition-colors">' + others[os] + '</a>' +
-          ' <span class="text-gray-300">&middot;</span> ' +
-          '<a href="' + releasesUrl + '" class="hover:text-gray-600 transition-colors">' + others2[os] + '</a>' +
-          ' <span class="text-gray-300">&middot;</span> ';
-      }
+      var altMatchers = {
+        mac: { label: 'Windows', match: matchers.win },
+        win: { label: 'macOS', match: matchers.mac },
+        linux: { label: 'macOS', match: matchers.mac },
+      };
+      var altMatchers2 = {
+        mac: { label: 'Linux', match: matchers.linux },
+        win: { label: 'Linux', match: matchers.linux },
+        linux: { label: 'Windows', match: matchers.win },
+      };
+
+      // Fetch latest release assets and update links
+      fetch('https://api.github.com/repos/codedgar/gmk87-node/releases/latest')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          var assets = data.assets || [];
+
+          // Find direct download URL for the detected OS
+          if (os !== 'unknown' && matchers[os]) {
+            var match = assets.find(function(a) { return matchers[os](a.name); });
+            if (match) btn.href = match.browser_download_url;
+          }
+
+          // Build alt download links with direct URLs
+          if (os !== 'unknown') {
+            var alt1 = assets.find(function(a) { return altMatchers[os].match(a.name); });
+            var alt2 = assets.find(function(a) { return altMatchers2[os].match(a.name); });
+            var alt1Url = alt1 ? alt1.browser_download_url : releasesUrl;
+            var alt2Url = alt2 ? alt2.browser_download_url : releasesUrl;
+
+            altEl.innerHTML =
+              '<a href="' + alt1Url + '" class="hover:text-gray-600 transition-colors">' + altMatchers[os].label + '</a>' +
+              ' <span class="text-gray-300">&middot;</span> ' +
+              '<a href="' + alt2Url + '" class="hover:text-gray-600 transition-colors">' + altMatchers2[os].label + '</a>' +
+              ' <span class="text-gray-300">&middot;</span> ';
+          }
+        })
+        .catch(function() {
+          // API failed, fall back to releases page links
+          if (os !== 'unknown') {
+            altEl.innerHTML =
+              '<a href="' + releasesUrl + '" class="hover:text-gray-600 transition-colors">Other platforms</a>' +
+              ' <span class="text-gray-300">&middot;</span> ';
+          }
+        });
     })();
 
     // Feature card switcher
