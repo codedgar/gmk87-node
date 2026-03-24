@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://codedgar.github.io/gmk87-node/sitemap.xml

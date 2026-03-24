@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>How to Upload Custom Images to Your GMK87 Keyboard - GMK87 Configurator</title>
+  <meta name="description" content="Step-by-step guide to uploading custom images, photos, and animated GIFs to the GMK87 (Zuoya GMK87) keyboard display. Supports PNG, JPG, BMP, and GIF formats.">
+
+  <!-- Canonical -->
+  <link rel="canonical" href="https://codedgar.github.io/gmk87-node/how-to/upload-images/">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="../../icon.svg">
+  <link rel="icon" type="image/png" href="../../icon.png">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="article">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:title" content="How to Upload Custom Images to Your GMK87 Keyboard">
+  <meta property="og:description" content="Step-by-step guide to uploading custom images, photos, and animated GIFs to the GMK87 keyboard display. Supports PNG, JPG, BMP, and GIF.">
+  <meta property="og:url" content="https://codedgar.github.io/gmk87-node/how-to/upload-images/">
+  <meta property="og:image" content="https://codedgar.github.io/gmk87-node/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:site_name" content="GMK87 Configurator">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="How to Upload Custom Images to Your GMK87 Keyboard">
+  <meta name="twitter:description" content="Step-by-step guide to uploading custom images, photos, and animated GIFs to the GMK87 keyboard display.">
+  <meta name="twitter:image" content="https://codedgar.github.io/gmk87-node/og-image.png">
+
+  <!-- Theme color -->
+  <meta name="theme-color" content="#ffffff">
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: {
+        sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"Segoe UI"', 'system-ui', 'Roboto', 'sans-serif'],
+        mono: ['"SF Mono"', '"Fira Code"', '"Cascadia Code"', 'Consolas', 'monospace'],
+      }}}
+    }
+  </script>
+
+  <!-- HowTo Schema.org JSON-LD -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    "name": "How to upload custom images to the GMK87 keyboard",
+    "description": "Upload custom images, photos, and animated GIFs to the built-in display on the GMK87 (Zuoya GMK87) mechanical keyboard using the GMK87 Configurator app, CLI, or Node.js API.",
+    "totalTime": "PT2M",
+    "supply": [
+      {
+        "@type": "HowToSupply",
+        "name": "An image file (PNG, JPG, BMP, or GIF)"
+      }
+    ],
+    "tool": [
+      {
+        "@type": "HowToTool",
+        "name": "GMK87 Configurator app, CLI, or Node.js API"
+      },
+      {
+        "@type": "HowToTool",
+        "name": "USB cable connected to your GMK87 keyboard"
+      }
+    ],
+    "step": [
+      {
+        "@type": "HowToStep",
+        "name": "Prepare your image",
+        "text": "Choose or create an image at 240x135 pixels. The display supports PNG, JPG, BMP, and GIF formats. Images will be automatically resized if needed.",
+        "position": 1
+      },
+      {
+        "@type": "HowToStep",
+        "name": "Connect your keyboard",
+        "text": "Plug your GMK87 keyboard into your computer via USB. Ensure it is recognized by your system.",
+        "position": 2
+      },
+      {
+        "@type": "HowToStep",
+        "name": "Upload the image",
+        "text": "Use the GMK87 Configurator desktop app (drag and drop), the CLI command 'npm run sendimage -- --file your-image.png --slot 0', or the Node.js API to upload your image to one of the two available display slots.",
+        "position": 3
+      },
+      {
+        "@type": "HowToStep",
+        "name": "Verify the upload",
+        "text": "The keyboard display will show your uploaded image immediately after the upload completes. You can switch between slot 0, slot 1, and the clock display.",
+        "position": 4
+      }
+    ]
+  }
+  </script>
+
+  <!-- BreadcrumbList Schema.org JSON-LD -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": "https://codedgar.github.io/gmk87-node/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "How To",
+        "item": "https://codedgar.github.io/gmk87-node/how-to/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 3,
+        "name": "Upload Images",
+        "item": "https://codedgar.github.io/gmk87-node/how-to/upload-images/"
+      }
+    ]
+  }
+  </script>
+</head>
+<body class="bg-white text-gray-900 font-sans antialiased">
+
+  <!-- Nav -->
+  <nav id="navbar" class="sticky top-0 z-50 backdrop-blur-md border-b bg-white/80 border-gray-200 text-gray-900">
+    <div class="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+      <a href="../../" class="flex items-center gap-2.5 no-underline" style="color:inherit;">
+        <img src="../../icon.png" alt="GMK87" width="28" height="28" class="drop-shadow">
+        <span class="font-semibold text-base">GMK87</span>
+      </a>
+      <div class="hidden md:flex items-center gap-6 text-sm" style="color:inherit;">
+        <a href="../../#features" style="color:inherit;" class="opacity-60 hover:opacity-100 transition-opacity no-underline">Features</a>
+        <a href="../../#download" style="color:inherit;" class="opacity-60 hover:opacity-100 transition-opacity no-underline">Download</a>
+        <a href="../" style="color:inherit;" class="opacity-60 hover:opacity-100 transition-opacity no-underline">How To</a>
+        <a href="https://github.com/codedgar/gmk87-node" style="color:inherit;" class="opacity-60 hover:opacity-100 transition-opacity no-underline">GitHub</a>
+      </div>
+      <button id="mobile-menu-btn" class="md:hidden p-2 opacity-60">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg>
+      </button>
+    </div>
+    <div id="mobile-menu" class="hidden md:hidden border-t px-6 pb-4" style="border-color:inherit;">
+      <a href="../../#features" class="block py-2 text-sm opacity-70" style="color:inherit;">Features</a>
+      <a href="../../#download" class="block py-2 text-sm opacity-70" style="color:inherit;">Download</a>
+      <a href="../" class="block py-2 text-sm opacity-70" style="color:inherit;">How To</a>
+      <a href="https://github.com/codedgar/gmk87-node" class="block py-2 text-sm opacity-70" style="color:inherit;">GitHub</a>
+    </div>
+  </nav>
+
+  <!-- Main content -->
+  <main class="max-w-3xl mx-auto px-6 py-10">
+
+    <!-- Breadcrumb -->
+    <nav aria-label="Breadcrumb" class="mb-8 text-sm text-gray-500">
+      <ol class="flex items-center gap-1.5">
+        <li><a href="../../" class="hover:text-gray-900 transition-colors">Home</a></li>
+        <li class="before:content-['/'] before:mx-1.5 before:text-gray-300"><a href="../" class="hover:text-gray-900 transition-colors">How To</a></li>
+        <li class="before:content-['/'] before:mx-1.5 before:text-gray-300 text-gray-900 font-medium">Upload Images</li>
+      </ol>
+    </nav>
+
+    <!-- H1 -->
+    <h1 class="text-3xl sm:text-4xl font-bold tracking-tight mb-4">How to Upload Custom Images to Your GMK87 Keyboard</h1>
+    <p class="text-lg text-gray-600 mb-10">Personalize the built-in LCD display on your Zuoya GMK87 with custom images, photos, logos, or animated GIFs.</p>
+
+    <!-- What the display supports -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-semibold mb-4">What the Display Supports</h2>
+      <p class="text-gray-700 mb-4">The GMK87 has a small LCD screen in the top-right corner of the keyboard. Here is what you need to know about it:</p>
+      <div class="bg-gray-50 rounded-xl border border-gray-200 p-6">
+        <ul class="space-y-3 text-gray-700">
+          <li class="flex gap-3">
+            <span class="text-gray-400 font-mono text-sm mt-0.5 shrink-0">Resolution</span>
+            <span><strong>240 x 135 pixels</strong> &mdash; landscape orientation. Images are automatically resized to fit.</span>
+          </li>
+          <li class="flex gap-3">
+            <span class="text-gray-400 font-mono text-sm mt-0.5 shrink-0">Formats&nbsp;&nbsp;</span>
+            <span><strong>PNG, JPG, BMP, and GIF</strong> (including animated GIFs).</span>
+          </li>
+          <li class="flex gap-3">
+            <span class="text-gray-400 font-mono text-sm mt-0.5 shrink-0">Slots&nbsp;&nbsp;&nbsp;&nbsp;</span>
+            <span><strong>2 image slots</strong> (slot 0 and slot 1). You can switch between them or show the clock.</span>
+          </li>
+          <li class="flex gap-3">
+            <span class="text-gray-400 font-mono text-sm mt-0.5 shrink-0">Animation&nbsp;</span>
+            <span><strong>Up to 36 total frames</strong> across both slots. For example, a 20-frame GIF in slot 0 and a 16-frame GIF in slot 1. Frames beyond 36 are automatically truncated.</span>
+          </li>
+          <li class="flex gap-3">
+            <span class="text-gray-400 font-mono text-sm mt-0.5 shrink-0">Display&nbsp;&nbsp;&nbsp;</span>
+            <span>Three display modes: <strong>clock</strong> (default), <strong>slot 0</strong>, or <strong>slot 1</strong>.</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Method 1: Desktop App -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-semibold mb-4">Method 1: Using the Desktop App</h2>
+      <p class="text-gray-700 mb-4">The GMK87 Configurator app is the easiest way to upload images. It works on macOS, Windows, and Linux.</p>
+      <ol class="space-y-4 text-gray-700">
+        <li class="flex gap-3">
+          <span class="flex-shrink-0 w-7 h-7 rounded-full bg-gray-900 text-white text-sm font-semibold flex items-center justify-center">1</span>
+          <div>
+            <strong>Download and open the app</strong> from the <a href="../#download" class="text-blue-600 hover:text-blue-800 underline">download section</a> of the homepage.
+          </div>
+        </li>
+        <li class="flex gap-3">
+          <span class="flex-shrink-0 w-7 h-7 rounded-full bg-gray-900 text-white text-sm font-semibold flex items-center justify-center">2</span>
+          <div>
+            <strong>Connect your GMK87 keyboard</strong> via USB. The app will detect it automatically.
+          </div>
+        </li>
+        <li class="flex gap-3">
+          <span class="flex-shrink-0 w-7 h-7 rounded-full bg-gray-900 text-white text-sm font-semibold flex items-center justify-center">3</span>
+          <div>
+            <strong>Drag and drop your image</strong> onto the slot area (slot 0 or slot 1). The image will be resized and uploaded. You can also click the slot area to open a file picker.
+          </div>
+        </li>
+        <li class="flex gap-3">
+          <span class="flex-shrink-0 w-7 h-7 rounded-full bg-gray-900 text-white text-sm font-semibold flex items-center justify-center">4</span>
+          <div>
+            <strong>Wait for the upload to finish.</strong> The display will show your image immediately after the upload completes.
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <!-- Method 2: CLI -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-semibold mb-4">Method 2: Using the CLI</h2>
+      <p class="text-gray-700 mb-4">The command-line interface gives you full control and is ideal for scripting or automation. Make sure you have <a href="https://nodejs.org/" class="text-blue-600 hover:text-blue-800 underline" rel="noopener">Node.js 14+</a> installed.</p>
+
+      <h3 class="text-lg font-semibold mt-6 mb-3">Setup</h3>
+      <div class="bg-gray-900 rounded-lg p-4 mb-6 overflow-x-auto">
+        <pre class="text-sm text-gray-100 font-mono"><code>git clone https://github.com/codedgar/gmk87-node.git
+cd gmk87-node
+npm install</code></pre>
+      </div>
+
+      <h3 class="text-lg font-semibold mt-6 mb-3">Upload a single image to slot 0</h3>
+      <div class="bg-gray-900 rounded-lg p-4 mb-4 overflow-x-auto">
+        <pre class="text-sm text-gray-100 font-mono"><code>npm run sendimage -- --file ./my-photo.png --slot 0</code></pre>
+      </div>
+      <p class="text-gray-600 text-sm mb-6">The image is automatically resized to 240x135 pixels. Any PNG, JPG, BMP, or GIF file works.</p>
+
+      <h3 class="text-lg font-semibold mt-6 mb-3">Upload a single image to slot 1</h3>
+      <div class="bg-gray-900 rounded-lg p-4 mb-4 overflow-x-auto">
+        <pre class="text-sm text-gray-100 font-mono"><code>npm run sendimage -- --file ./logo.jpg --slot 1</code></pre>
+      </div>
+
+      <h3 class="text-lg font-semibold mt-6 mb-3">Upload images to both slots at once</h3>
+      <div class="bg-gray-900 rounded-lg p-4 mb-4 overflow-x-auto">
+        <pre class="text-sm text-gray-100 font-mono"><code>npm run sendimage -- --slot0 ./photo.png --slot1 ./logo.jpg</code></pre>
+      </div>
+      <p class="text-gray-600 text-sm mb-6">Uploading both slots at once is faster than uploading them separately because it only requires one USB upload session.</p>
+
+      <h3 class="text-lg font-semibold mt-6 mb-3">Upload an animated GIF</h3>
+      <div class="bg-gray-900 rounded-lg p-4 mb-4 overflow-x-auto">
+        <pre class="text-sm text-gray-100 font-mono"><code># Upload a GIF to slot 0 with default 100ms frame delay
+npm run sendimage -- --file ./animation.gif --slot 0
+
+# Upload with custom frame delay (150ms between frames)
+npm run sendimage -- --file ./animation.gif --slot 0 --ms 150
+
+# Upload GIFs to both slots with a shared frame delay
+npm run sendimage -- --slot0 ./anim1.gif --slot1 ./anim2.gif --ms 120</code></pre>
+      </div>
+      <p class="text-gray-600 text-sm mb-6">The <code class="bg-gray-100 px-1.5 py-0.5 rounded text-gray-800">--ms</code> flag sets the animation delay in milliseconds between frames. Minimum is 60ms. Default for GIFs is 100ms.</p>
+
+      <h3 class="text-lg font-semibold mt-6 mb-3">Control which slot is displayed</h3>
+      <div class="bg-gray-900 rounded-lg p-4 mb-4 overflow-x-auto">
+        <pre class="text-sm text-gray-100 font-mono"><code># When using --slot0/--slot1 mode, --show controls which slot to display after upload:
+# 0 = show clock, 1 = show slot 0, 2 = show slot 1
+npm run sendimage -- --slot0 ./photo.png --slot1 ./logo.jpg --show 2</code></pre>
+      </div>
+    </section>
+
+    <!-- Method 3: Node.js API -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-semibold mb-4">Method 3: Using the Node.js API</h2>
+      <p class="text-gray-700 mb-4">You can integrate GMK87 image uploads into your own Node.js applications.</p>
+
+      <h3 class="text-lg font-semibold mt-6 mb-3">Install</h3>
+      <div class="bg-gray-900 rounded-lg p-4 mb-6 overflow-x-auto">
+        <pre class="text-sm text-gray-100 font-mono"><code>npm install gmk87-hid-uploader</code></pre>
+      </div>
+
+      <h3 class="text-lg font-semibold mt-6 mb-3">Upload a static image</h3>
+      <div class="bg-gray-900 rounded-lg p-4 mb-6 overflow-x-auto">
+        <pre class="text-sm text-gray-100 font-mono"><code>import gmk87 from "gmk87-hid-uploader";
+
+// Upload to slot 0 and display it
+await gmk87.uploadImage("cat.png", 0, {
+  slot0File: "cat.png",
+});</code></pre>
+      </div>
+
+      <h3 class="text-lg font-semibold mt-6 mb-3">Upload images to both slots</h3>
+      <div class="bg-gray-900 rounded-lg p-4 mb-6 overflow-x-auto">
+        <pre class="text-sm text-gray-100 font-mono"><code>import gmk87 from "gmk87-hid-uploader";
+
+// Upload different images to each slot
+await gmk87.uploadImage("cat.png", 0, {
+  slot0File: "cat.png",
+  slot1File: "dog.jpg",
+});</code></pre>
+      </div>
+
+      <h3 class="text-lg font-semibold mt-6 mb-3">Upload an animated GIF</h3>
+      <div class="bg-gray-900 rounded-lg p-4 mb-6 overflow-x-auto">
+        <pre class="text-sm text-gray-100 font-mono"><code>import gmk87 from "gmk87-hid-uploader";
+
+// Upload animated GIF with custom frame delay
+await gmk87.uploadImage("nyan.gif", 0, {
+  slot0File: "nyan.gif",
+  frameDuration: 100,  // ms between frames (min 60)
+});</code></pre>
+      </div>
+
+      <h3 class="text-lg font-semibold mt-6 mb-3">Switch the displayed slot</h3>
+      <div class="bg-gray-900 rounded-lg p-4 mb-6 overflow-x-auto">
+        <pre class="text-sm text-gray-100 font-mono"><code>import gmk87 from "gmk87-hid-uploader";
+
+// 0 = clock, 1 = slot 0, 2 = slot 1
+await gmk87.showSlot(1);  // Display slot 0</code></pre>
+      </div>
+    </section>
+
+    <!-- Image tips -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-semibold mb-4">Image Tips</h2>
+      <div class="space-y-4">
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-5">
+          <h3 class="font-semibold text-blue-900 mb-1">Optimal resolution</h3>
+          <p class="text-blue-800 text-sm">For the sharpest result, prepare your image at exactly <strong>240 x 135 pixels</strong> before uploading. While any resolution works (images are auto-resized), starting at the native resolution avoids any scaling artifacts.</p>
+        </div>
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-5">
+          <h3 class="font-semibold text-blue-900 mb-1">Aspect ratio</h3>
+          <p class="text-blue-800 text-sm">The display aspect ratio is roughly 16:9. Images with a different aspect ratio will be stretched to fit. If you want to avoid distortion, crop your image to 16:9 before uploading.</p>
+        </div>
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-5">
+          <h3 class="font-semibold text-blue-900 mb-1">Transparency</h3>
+          <p class="text-blue-800 text-sm">The display does not support transparency. Transparent areas in PNG or GIF files will appear as black on the keyboard screen. If your image has a transparent background, add a solid background color before uploading.</p>
+        </div>
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-5">
+          <h3 class="font-semibold text-blue-900 mb-1">Animated GIFs</h3>
+          <p class="text-blue-800 text-sm">The keyboard supports up to <strong>36 total frames</strong> across both slots combined. If your GIF has more frames, they will be automatically truncated. For smooth animations, keep your GIF under 18 frames per slot if you are using both slots. Each frame uses about 32KB of flash storage.</p>
+        </div>
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-5">
+          <h3 class="font-semibold text-blue-900 mb-1">Frame delay</h3>
+          <p class="text-blue-800 text-sm">The minimum animation delay is <strong>60ms</strong> per frame. The default is <strong>100ms</strong> (10 frames per second). You can set a custom delay with the <code class="bg-blue-100 px-1 py-0.5 rounded text-blue-900 text-xs">--ms</code> CLI flag or the <code class="bg-blue-100 px-1 py-0.5 rounded text-blue-900 text-xs">frameDuration</code> API option. The original GIF timing is not preserved &mdash; all frames use the same delay.</p>
+        </div>
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-5">
+          <h3 class="font-semibold text-blue-900 mb-1">Color depth</h3>
+          <p class="text-blue-800 text-sm">The display uses RGB565 (16-bit color). Very subtle gradients may show visible banding. Bold, high-contrast images tend to look best on the small screen.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Next guide link -->
+    <section class="border-t border-gray-200 pt-8">
+      <div class="flex items-center justify-between">
+        <div></div>
+        <a href="../configure-lighting/" class="group flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors text-sm font-medium">
+          Next: Configure Lighting
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform group-hover:translate-x-0.5"><path d="M6 3l5 5-5 5"/></svg>
+        </a>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-[#0a0c12] text-gray-500 py-12 px-6 border-t border-gray-800">
+    <div class="max-w-4xl mx-auto text-center text-sm">
+      <p class="mb-3">MIT License. Made by <a href="https://github.com/codedgar" class="text-gray-400 hover:text-white transition-colors">Codedgar</a></p>
+      <p class="mb-4">
+        <a href="https://github.com/codedgar/gmk87-node" class="text-gray-400 hover:text-white transition-colors">GitHub</a>
+        <span class="mx-2">&middot;</span>
+        <a href="https://github.com/codedgar/gmk87-node/releases/latest" class="text-gray-400 hover:text-white transition-colors">Releases</a>
+      </p>
+    </div>
+  </footer>
+
+  <!-- Mobile menu toggle -->
+  <script>
+  (function() {
+    const btn = document.getElementById('mobile-menu-btn');
+    const menu = document.getElementById('mobile-menu');
+    btn.addEventListener('click', function() { menu.classList.toggle('hidden'); });
+    menu.querySelectorAll('a').forEach(function(a) { a.addEventListener('click', function() { menu.classList.add('hidden'); }); });
+  })();
+  </script>
+
+</body>
+</html>

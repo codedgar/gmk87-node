@@ -4,7 +4,7 @@ import { join, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
 const MIME_TYPES = {
   '.html': 'text/html',
@@ -17,7 +17,9 @@ const MIME_TYPES = {
 };
 
 const server = createServer(async (req, res) => {
-  const filePath = join(__dirname, req.url === '/' ? 'index.html' : req.url);
+  let urlPath = req.url.split('?')[0]; // strip query string
+  if (urlPath.endsWith('/')) urlPath += 'index.html';
+  const filePath = join(__dirname, urlPath);
   const ext = extname(filePath);
   const contentType = MIME_TYPES[ext] || 'application/octet-stream';
 

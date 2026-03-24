@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>How to Configure GMK87 Keyboard Lighting and RGB Colors</title>
+  <meta name="description" content="Step-by-step guide to configuring GMK87 keyboard RGB lighting, underglow effects, LED colors, brightness, speed, and custom colors using the app, CLI, or API.">
+
+  <!-- Canonical -->
+  <link rel="canonical" href="https://codedgar.github.io/gmk87-node/how-to/configure-lighting/">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="../../icon.svg">
+  <link rel="icon" type="image/png" href="../../icon.png">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="article">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:title" content="How to Configure GMK87 Keyboard Lighting and RGB Colors">
+  <meta property="og:description" content="Step-by-step guide to configuring GMK87 keyboard RGB lighting, underglow effects, LED colors, brightness, speed, and custom colors using the app, CLI, or API.">
+  <meta property="og:url" content="https://codedgar.github.io/gmk87-node/how-to/configure-lighting/">
+  <meta property="og:image" content="https://codedgar.github.io/gmk87-node/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:site_name" content="GMK87 Configurator">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="How to Configure GMK87 Keyboard Lighting and RGB Colors">
+  <meta name="twitter:description" content="Step-by-step guide to configuring GMK87 keyboard RGB lighting, underglow effects, LED colors, brightness, speed, and custom colors using the app, CLI, or API.">
+  <meta name="twitter:image" content="https://codedgar.github.io/gmk87-node/og-image.png">
+
+  <!-- Theme color -->
+  <meta name="theme-color" content="#ffffff">
+
+  <!-- Structured Data: BreadcrumbList -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": "https://codedgar.github.io/gmk87-node/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "How To",
+        "item": "https://codedgar.github.io/gmk87-node/how-to/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 3,
+        "name": "Configure Lighting",
+        "item": "https://codedgar.github.io/gmk87-node/how-to/configure-lighting/"
+      }
+    ]
+  }
+  </script>
+
+  <!-- Structured Data: HowTo -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    "name": "How to Configure GMK87 Keyboard Lighting and RGB Colors",
+    "description": "Configure the underglow effects, brightness, speed, custom RGB colors, LED modes, and display settings on your Zuoya GMK87 keyboard using the desktop app, CLI, or Node.js API.",
+    "totalTime": "PT5M",
+    "tool": [
+      {
+        "@type": "HowToTool",
+        "name": "GMK87 Configurator App, CLI, or Node.js API"
+      }
+    ],
+    "supply": [
+      {
+        "@type": "HowToSupply",
+        "name": "Zuoya GMK87 Keyboard connected via USB"
+      }
+    ],
+    "step": [
+      {
+        "@type": "HowToStep",
+        "position": 1,
+        "name": "Connect your keyboard",
+        "text": "Plug your GMK87 keyboard into your computer via USB. Ensure it is detected by the system."
+      },
+      {
+        "@type": "HowToStep",
+        "position": 2,
+        "name": "Choose an underglow effect",
+        "text": "Select from 19 underglow effects including static, breathing, wave, rainbow-cycle, fire, ripple, and more. Each effect is identified by a number from 0 (off) to 18 (snake)."
+      },
+      {
+        "@type": "HowToStep",
+        "position": 3,
+        "name": "Set brightness and speed",
+        "text": "Adjust brightness from 0 (off) to 9 (maximum) and speed from 0 (fastest) to 9 (slowest) to fine-tune the lighting effect."
+      },
+      {
+        "@type": "HowToStep",
+        "position": 4,
+        "name": "Configure custom RGB colors",
+        "text": "Set custom colors by specifying red, green, and blue values from 0 to 255 each. Disable rainbow mode to use your custom color with the selected effect."
+      },
+      {
+        "@type": "HowToStep",
+        "position": 5,
+        "name": "Configure LED and display settings",
+        "text": "Set the LED mode (0-4), LED color preset (0-8), and display mode to show the clock or one of two image slots."
+      },
+      {
+        "@type": "HowToStep",
+        "position": 6,
+        "name": "Apply the configuration",
+        "text": "Use the GMK87 app, CLI command, or Node.js API to send the configuration to your keyboard. The changes take effect immediately."
+      }
+    ]
+  }
+  </script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"Segoe UI"', 'system-ui', 'Roboto', 'sans-serif'],
+            mono: ['"SF Mono"', '"Fira Code"', '"Cascadia Code"', 'Consolas', 'monospace'],
+          },
+        },
+      },
+    }
+  </script>
+  <style>
+    .code-keyword { color: #c084fc; }
+    .code-string { color: #86efac; }
+    .code-comment { color: #6b7280; }
+    .code-fn { color: #93c5fd; }
+    .code-number { color: #fbbf24; }
+    .code-punct { color: #9ca3af; }
+  </style>
+</head>
+<body class="bg-white text-gray-900 font-sans">
+
+  <nav id="navbar" class="sticky top-0 z-50 backdrop-blur-md border-b bg-white/80 border-gray-200 text-gray-900">
+    <div class="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+      <a href="../../" class="flex items-center gap-2.5 no-underline" style="color:inherit;">
+        <img src="../../icon.png" alt="GMK87" width="28" height="28" class="drop-shadow">
+        <span class="font-semibold text-base">GMK87</span>
+      </a>
+      <div class="hidden md:flex items-center gap-6 text-sm" style="color:inherit;">
+        <a href="../../#features" style="color:inherit;" class="opacity-60 hover:opacity-100 transition-opacity no-underline">Features</a>
+        <a href="../../#download" style="color:inherit;" class="opacity-60 hover:opacity-100 transition-opacity no-underline">Download</a>
+        <a href="../" style="color:inherit;" class="opacity-60 hover:opacity-100 transition-opacity no-underline">How To</a>
+        <a href="https://github.com/codedgar/gmk87-node" style="color:inherit;" class="opacity-60 hover:opacity-100 transition-opacity no-underline">GitHub</a>
+      </div>
+      <button id="mobile-menu-btn" class="md:hidden p-2 opacity-60">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg>
+      </button>
+    </div>
+    <div id="mobile-menu" class="hidden md:hidden border-t px-6 pb-4" style="border-color:inherit;">
+      <a href="../../#features" class="block py-2 text-sm opacity-70" style="color:inherit;">Features</a>
+      <a href="../../#download" class="block py-2 text-sm opacity-70" style="color:inherit;">Download</a>
+      <a href="../" class="block py-2 text-sm opacity-70" style="color:inherit;">How To</a>
+      <a href="https://github.com/codedgar/gmk87-node" class="block py-2 text-sm opacity-70" style="color:inherit;">GitHub</a>
+    </div>
+  </nav>
+
+  <main class="max-w-3xl mx-auto px-6 py-12">
+
+    <!-- Breadcrumb -->
+    <nav aria-label="Breadcrumb" class="mb-8 text-sm text-gray-500">
+      <ol class="flex items-center gap-1.5">
+        <li><a href="../../" class="hover:text-gray-900 transition-colors">Home</a></li>
+        <li class="before:content-['/'] before:mx-1.5 before:text-gray-300"><a href="../" class="hover:text-gray-900 transition-colors">How To</a></li>
+        <li class="before:content-['/'] before:mx-1.5 before:text-gray-300 text-gray-900 font-medium">Configure Lighting</li>
+      </ol>
+    </nav>
+
+    <article>
+      <h1 class="text-3xl sm:text-4xl font-bold tracking-tight mb-4">How to Configure GMK87 Keyboard Lighting and RGB Colors</h1>
+      <p class="text-lg text-gray-600 mb-10">Control underglow effects, brightness, speed, custom RGB colors, LED modes, and display settings on your Zuoya GMK87 keyboard.</p>
+
+      <!-- Prerequisites -->
+      <section class="mb-10 p-5 bg-gray-50 rounded-xl border border-gray-200">
+        <h2 class="text-lg font-semibold mb-2">Before you start</h2>
+        <ul class="list-disc list-inside text-gray-700 space-y-1 text-sm">
+          <li>Connect your GMK87 keyboard via USB</li>
+          <li>Install the <a href="../#download" class="text-blue-600 hover:underline">GMK87 Configurator</a> (app, CLI, or npm package)</li>
+          <li>On Linux, ensure your user has HID device permissions (udev rules)</li>
+        </ul>
+      </section>
+
+      <!-- ==================== UNDERGLOW EFFECTS ==================== -->
+      <section class="mb-12">
+        <h2 class="text-2xl font-bold mb-4" id="underglow-effects">Underglow Effects</h2>
+        <p class="text-gray-700 mb-4">The GMK87 supports 19 underglow effects. Each effect is identified by a number you can pass via CLI or API.</p>
+
+        <div class="overflow-x-auto rounded-xl border border-gray-200">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50 text-left">
+              <tr>
+                <th class="px-4 py-3 font-semibold text-gray-600 w-16">#</th>
+                <th class="px-4 py-3 font-semibold text-gray-600">Effect Name</th>
+                <th class="px-4 py-3 font-semibold text-gray-600">CLI Name</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              <tr><td class="px-4 py-2 font-mono text-gray-500">0</td><td class="px-4 py-2">Off</td><td class="px-4 py-2 font-mono text-xs">off</td></tr>
+              <tr class="bg-gray-50/50"><td class="px-4 py-2 font-mono text-gray-500">1</td><td class="px-4 py-2">Static</td><td class="px-4 py-2 font-mono text-xs">horizontal-dimming-wave</td></tr>
+              <tr><td class="px-4 py-2 font-mono text-gray-500">2</td><td class="px-4 py-2">Breathing</td><td class="px-4 py-2 font-mono text-xs">horizontal-pulse-wave</td></tr>
+              <tr class="bg-gray-50/50"><td class="px-4 py-2 font-mono text-gray-500">3</td><td class="px-4 py-2">Wave</td><td class="px-4 py-2 font-mono text-xs">waterfall</td></tr>
+              <tr><td class="px-4 py-2 font-mono text-gray-500">4</td><td class="px-4 py-2">Fade</td><td class="px-4 py-2 font-mono text-xs">full-cycling-colors</td></tr>
+              <tr class="bg-gray-50/50"><td class="px-4 py-2 font-mono text-gray-500">5</td><td class="px-4 py-2">Marquee</td><td class="px-4 py-2 font-mono text-xs">breathing</td></tr>
+              <tr><td class="px-4 py-2 font-mono text-gray-500">6</td><td class="px-4 py-2">Fire</td><td class="px-4 py-2 font-mono text-xs">full-one-color</td></tr>
+              <tr class="bg-gray-50/50"><td class="px-4 py-2 font-mono text-gray-500">7</td><td class="px-4 py-2">Rainbow Wave</td><td class="px-4 py-2 font-mono text-xs">glow-pressed-key</td></tr>
+              <tr><td class="px-4 py-2 font-mono text-gray-500">8</td><td class="px-4 py-2">Rainbow Spiral</td><td class="px-4 py-2 font-mono text-xs">glow-spreading</td></tr>
+              <tr class="bg-gray-50/50"><td class="px-4 py-2 font-mono text-gray-500">9</td><td class="px-4 py-2">Rain</td><td class="px-4 py-2 font-mono text-xs">glow-row</td></tr>
+              <tr><td class="px-4 py-2 font-mono text-gray-500">10</td><td class="px-4 py-2">Aurora</td><td class="px-4 py-2 font-mono text-xs">random-pattern</td></tr>
+              <tr class="bg-gray-50/50"><td class="px-4 py-2 font-mono text-gray-500">11</td><td class="px-4 py-2">Rainbow Cycle</td><td class="px-4 py-2 font-mono text-xs">rainbow-cycle</td></tr>
+              <tr><td class="px-4 py-2 font-mono text-gray-500">12</td><td class="px-4 py-2">Ripple</td><td class="px-4 py-2 font-mono text-xs">rainbow-waterfall</td></tr>
+              <tr class="bg-gray-50/50"><td class="px-4 py-2 font-mono text-gray-500">13</td><td class="px-4 py-2">Firework</td><td class="px-4 py-2 font-mono text-xs">wave-from-center</td></tr>
+              <tr><td class="px-4 py-2 font-mono text-gray-500">14</td><td class="px-4 py-2">Reactive</td><td class="px-4 py-2 font-mono text-xs">circling-jk</td></tr>
+              <tr class="bg-gray-50/50"><td class="px-4 py-2 font-mono text-gray-500">15</td><td class="px-4 py-2">Gradient Wave</td><td class="px-4 py-2 font-mono text-xs">raining</td></tr>
+              <tr><td class="px-4 py-2 font-mono text-gray-500">16</td><td class="px-4 py-2">Bloom</td><td class="px-4 py-2 font-mono text-xs">wave-left-right</td></tr>
+              <tr class="bg-gray-50/50"><td class="px-4 py-2 font-mono text-gray-500">17</td><td class="px-4 py-2">Spotlight</td><td class="px-4 py-2 font-mono text-xs">slow-saturation-cycle</td></tr>
+              <tr><td class="px-4 py-2 font-mono text-gray-500">18</td><td class="px-4 py-2">Snake</td><td class="px-4 py-2 font-mono text-xs">slow-rainbow-from-center</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="text-sm text-gray-500 mt-3">You can use either the number or the CLI name when configuring via command line.</p>
+      </section>
+
+      <!-- ==================== BRIGHTNESS & SPEED ==================== -->
+      <section class="mb-12">
+        <h2 class="text-2xl font-bold mb-4" id="brightness-speed">Brightness and Speed</h2>
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div class="p-5 bg-gray-50 rounded-xl border border-gray-200">
+            <h3 class="font-semibold mb-2">Brightness</h3>
+            <p class="text-sm text-gray-700 mb-2">Controls underglow intensity. Range: <strong>0</strong> (off) to <strong>9</strong> (maximum).</p>
+            <div class="flex items-center gap-1 mt-3">
+              <span class="text-xs text-gray-400">0</span>
+              <div class="flex-1 h-2 rounded-full bg-gradient-to-r from-gray-300 to-purple-500"></div>
+              <span class="text-xs text-gray-400">9</span>
+            </div>
+          </div>
+          <div class="p-5 bg-gray-50 rounded-xl border border-gray-200">
+            <h3 class="font-semibold mb-2">Speed</h3>
+            <p class="text-sm text-gray-700 mb-2">Controls animation speed. Range: <strong>0</strong> (fastest) to <strong>9</strong> (slowest).</p>
+            <div class="flex items-center gap-1 mt-3">
+              <span class="text-xs text-gray-400">Fast 0</span>
+              <div class="flex-1 h-2 rounded-full bg-gradient-to-r from-blue-500 to-blue-200"></div>
+              <span class="text-xs text-gray-400">9 Slow</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== CUSTOM RGB ==================== -->
+      <section class="mb-12">
+        <h2 class="text-2xl font-bold mb-4" id="custom-rgb">Custom RGB Colors</h2>
+        <p class="text-gray-700 mb-4">Set a custom underglow color by specifying red, green, and blue values (each <strong>0&ndash;255</strong>). To use your custom color instead of the default rainbow cycle, set <code class="text-sm bg-gray-100 px-1.5 py-0.5 rounded">--rainbow false</code>.</p>
+
+        <div class="grid grid-cols-3 gap-3 mb-4">
+          <div class="p-4 rounded-xl border border-red-200 bg-red-50 text-center">
+            <div class="text-2xl font-bold text-red-600">R</div>
+            <div class="text-xs text-gray-500 mt-1">0 &ndash; 255</div>
+          </div>
+          <div class="p-4 rounded-xl border border-green-200 bg-green-50 text-center">
+            <div class="text-2xl font-bold text-green-600">G</div>
+            <div class="text-xs text-gray-500 mt-1">0 &ndash; 255</div>
+          </div>
+          <div class="p-4 rounded-xl border border-blue-200 bg-blue-50 text-center">
+            <div class="text-2xl font-bold text-blue-600">B</div>
+            <div class="text-xs text-gray-500 mt-1">0 &ndash; 255</div>
+          </div>
+        </div>
+
+        <p class="text-sm text-gray-600">Common colors: <code class="bg-gray-100 px-1 rounded">255,0,0</code> = red, <code class="bg-gray-100 px-1 rounded">0,255,0</code> = green, <code class="bg-gray-100 px-1 rounded">0,0,255</code> = blue, <code class="bg-gray-100 px-1 rounded">255,165,0</code> = orange, <code class="bg-gray-100 px-1 rounded">128,0,255</code> = purple.</p>
+      </section>
+
+      <!-- ==================== LED MODES & COLORS ==================== -->
+      <section class="mb-12">
+        <h2 class="text-2xl font-bold mb-4" id="led-modes">LED Modes and Colors</h2>
+        <p class="text-gray-700 mb-4">The big LED (screen area indicator) has its own separate mode and color settings.</p>
+
+        <h3 class="font-semibold mb-3 text-lg">LED Modes (0&ndash;4)</h3>
+        <div class="overflow-x-auto rounded-xl border border-gray-200 mb-6">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50 text-left">
+              <tr>
+                <th class="px-4 py-3 font-semibold text-gray-600 w-16">#</th>
+                <th class="px-4 py-3 font-semibold text-gray-600">Mode</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              <tr><td class="px-4 py-2 font-mono text-gray-500">0</td><td class="px-4 py-2">Blinking (one color)</td></tr>
+              <tr class="bg-gray-50/50"><td class="px-4 py-2 font-mono text-gray-500">1</td><td class="px-4 py-2">Pulse Rainbow</td></tr>
+              <tr><td class="px-4 py-2 font-mono text-gray-500">2</td><td class="px-4 py-2">Blinking (one color, alt)</td></tr>
+              <tr class="bg-gray-50/50"><td class="px-4 py-2 font-mono text-gray-500">3</td><td class="px-4 py-2">Fixed Color</td></tr>
+              <tr><td class="px-4 py-2 font-mono text-gray-500">4</td><td class="px-4 py-2">Fixed Color (alt)</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="font-semibold mb-3 text-lg">LED Color Presets (0&ndash;8)</h3>
+        <div class="grid grid-cols-3 sm:grid-cols-5 gap-2">
+          <div class="flex items-center gap-2 p-2 rounded-lg border border-gray-200 text-sm"><span class="w-5 h-5 rounded-full bg-red-500 shrink-0"></span>0 &ndash; Red</div>
+          <div class="flex items-center gap-2 p-2 rounded-lg border border-gray-200 text-sm"><span class="w-5 h-5 rounded-full bg-orange-500 shrink-0"></span>1 &ndash; Orange</div>
+          <div class="flex items-center gap-2 p-2 rounded-lg border border-gray-200 text-sm"><span class="w-5 h-5 rounded-full bg-yellow-400 shrink-0"></span>2 &ndash; Yellow</div>
+          <div class="flex items-center gap-2 p-2 rounded-lg border border-gray-200 text-sm"><span class="w-5 h-5 rounded-full bg-green-500 shrink-0"></span>3 &ndash; Green</div>
+          <div class="flex items-center gap-2 p-2 rounded-lg border border-gray-200 text-sm"><span class="w-5 h-5 rounded-full bg-teal-500 shrink-0"></span>4 &ndash; Teal</div>
+          <div class="flex items-center gap-2 p-2 rounded-lg border border-gray-200 text-sm"><span class="w-5 h-5 rounded-full bg-blue-500 shrink-0"></span>5 &ndash; Blue</div>
+          <div class="flex items-center gap-2 p-2 rounded-lg border border-gray-200 text-sm"><span class="w-5 h-5 rounded-full bg-purple-500 shrink-0"></span>6 &ndash; Purple</div>
+          <div class="flex items-center gap-2 p-2 rounded-lg border border-gray-200 text-sm"><span class="w-5 h-5 rounded-full bg-white border border-gray-300 shrink-0"></span>7 &ndash; White</div>
+          <div class="flex items-center gap-2 p-2 rounded-lg border border-gray-200 text-sm"><span class="w-5 h-5 rounded-full bg-gray-800 shrink-0"></span>8 &ndash; Off</div>
+        </div>
+      </section>
+
+      <!-- ==================== DISPLAY MODE ==================== -->
+      <section class="mb-12">
+        <h2 class="text-2xl font-bold mb-4" id="display-mode">Display Mode</h2>
+        <p class="text-gray-700 mb-4">The GMK87 screen can show a clock or one of two uploaded image slots.</p>
+        <div class="overflow-x-auto rounded-xl border border-gray-200">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50 text-left">
+              <tr>
+                <th class="px-4 py-3 font-semibold text-gray-600 w-24">Value</th>
+                <th class="px-4 py-3 font-semibold text-gray-600">Display</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              <tr><td class="px-4 py-2 font-mono text-gray-500">0</td><td class="px-4 py-2">Clock / Time</td></tr>
+              <tr class="bg-gray-50/50"><td class="px-4 py-2 font-mono text-gray-500">1</td><td class="px-4 py-2">Image Slot 0</td></tr>
+              <tr><td class="px-4 py-2 font-mono text-gray-500">2</td><td class="px-4 py-2">Image Slot 1</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ==================== USING THE APP ==================== -->
+      <section class="mb-12">
+        <h2 class="text-2xl font-bold mb-4" id="configure-with-app">Configure Using the App</h2>
+        <p class="text-gray-700 mb-3">The GMK87 Configurator desktop app provides a visual interface for all lighting settings.</p>
+        <ol class="list-decimal list-inside space-y-3 text-gray-700">
+          <li><strong>Open the app</strong> and connect your keyboard. The app detects it automatically.</li>
+          <li>Navigate to the <strong>Lighting</strong> tab.</li>
+          <li><strong>Pick an underglow effect</strong> from the dropdown menu. The effect previews immediately on the keyboard.</li>
+          <li>Use the <strong>color picker</strong> to choose a custom RGB color, or enable <strong>Rainbow Mode</strong> to cycle through colors automatically.</li>
+          <li>Adjust the <strong>Brightness</strong> and <strong>Speed</strong> sliders.</li>
+          <li>Under <strong>LED Settings</strong>, choose the LED mode and color preset for the screen indicator.</li>
+          <li>Click <strong>Apply</strong> to save the configuration to the keyboard.</li>
+        </ol>
+      </section>
+
+      <!-- ==================== CLI ==================== -->
+      <section class="mb-12">
+        <h2 class="text-2xl font-bold mb-4" id="configure-with-cli">Configure Using the CLI</h2>
+        <p class="text-gray-700 mb-4">Run the <code class="text-sm bg-gray-100 px-1.5 py-0.5 rounded">configureLights.js</code> script with flags to set any combination of lighting options.</p>
+
+        <h3 class="font-semibold mb-2">Basic usage</h3>
+        <pre class="bg-gray-900 text-gray-100 rounded-xl p-4 overflow-x-auto text-sm mb-4"><code>node src/configureLights.js --effect rainbow-cycle --brightness 5 --speed 3</code></pre>
+
+        <h3 class="font-semibold mb-2">Set a custom color (solid purple)</h3>
+        <pre class="bg-gray-900 text-gray-100 rounded-xl p-4 overflow-x-auto text-sm mb-4"><code>node src/configureLights.js --effect 6 --red 128 --green 0 --blue 255 --rainbow false</code></pre>
+
+        <h3 class="font-semibold mb-2">Set breathing effect at max brightness</h3>
+        <pre class="bg-gray-900 text-gray-100 rounded-xl p-4 overflow-x-auto text-sm mb-4"><code>node src/configureLights.js --effect breathing --brightness 9 --speed 5</code></pre>
+
+        <h3 class="font-semibold mb-2">Set LED indicator to fixed blue</h3>
+        <pre class="bg-gray-900 text-gray-100 rounded-xl p-4 overflow-x-auto text-sm mb-4"><code>node src/configureLights.js --led-mode 3 --led-color blue</code></pre>
+
+        <h3 class="font-semibold mb-2">Switch display to clock mode</h3>
+        <pre class="bg-gray-900 text-gray-100 rounded-xl p-4 overflow-x-auto text-sm mb-4"><code>node src/configureLights.js --show-image 0</code></pre>
+
+        <h3 class="font-semibold mb-2">Turn off all lighting</h3>
+        <pre class="bg-gray-900 text-gray-100 rounded-xl p-4 overflow-x-auto text-sm mb-4"><code>node src/configureLights.js --effect 0 --brightness 0 --led-color off</code></pre>
+
+        <h3 class="font-semibold mb-2">All CLI flags</h3>
+        <div class="overflow-x-auto rounded-xl border border-gray-200">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50 text-left">
+              <tr>
+                <th class="px-4 py-3 font-semibold text-gray-600">Flag</th>
+                <th class="px-4 py-3 font-semibold text-gray-600">Range</th>
+                <th class="px-4 py-3 font-semibold text-gray-600">Description</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 text-sm">
+              <tr><td class="px-4 py-2 font-mono text-xs">--effect</td><td class="px-4 py-2">0&ndash;18 or name</td><td class="px-4 py-2">Underglow effect</td></tr>
+              <tr class="bg-gray-50/50"><td class="px-4 py-2 font-mono text-xs">--brightness</td><td class="px-4 py-2">0&ndash;9</td><td class="px-4 py-2">Underglow brightness</td></tr>
+              <tr><td class="px-4 py-2 font-mono text-xs">--speed</td><td class="px-4 py-2">0&ndash;9</td><td class="px-4 py-2">Animation speed (0=fast)</td></tr>
+              <tr class="bg-gray-50/50"><td class="px-4 py-2 font-mono text-xs">--orientation</td><td class="px-4 py-2">0 or 1</td><td class="px-4 py-2">Effect direction</td></tr>
+              <tr><td class="px-4 py-2 font-mono text-xs">--rainbow</td><td class="px-4 py-2">true/false</td><td class="px-4 py-2">Rainbow mode toggle</td></tr>
+              <tr class="bg-gray-50/50"><td class="px-4 py-2 font-mono text-xs">--red</td><td class="px-4 py-2">0&ndash;255</td><td class="px-4 py-2">Custom red value</td></tr>
+              <tr><td class="px-4 py-2 font-mono text-xs">--green</td><td class="px-4 py-2">0&ndash;255</td><td class="px-4 py-2">Custom green value</td></tr>
+              <tr class="bg-gray-50/50"><td class="px-4 py-2 font-mono text-xs">--blue</td><td class="px-4 py-2">0&ndash;255</td><td class="px-4 py-2">Custom blue value</td></tr>
+              <tr><td class="px-4 py-2 font-mono text-xs">--led-mode</td><td class="px-4 py-2">0&ndash;4</td><td class="px-4 py-2">LED indicator mode</td></tr>
+              <tr class="bg-gray-50/50"><td class="px-4 py-2 font-mono text-xs">--led-saturation</td><td class="px-4 py-2">0&ndash;9</td><td class="px-4 py-2">LED saturation</td></tr>
+              <tr><td class="px-4 py-2 font-mono text-xs">--led-rainbow</td><td class="px-4 py-2">true/false</td><td class="px-4 py-2">LED rainbow toggle</td></tr>
+              <tr class="bg-gray-50/50"><td class="px-4 py-2 font-mono text-xs">--led-color</td><td class="px-4 py-2">0&ndash;8 or name</td><td class="px-4 py-2">LED color preset</td></tr>
+              <tr><td class="px-4 py-2 font-mono text-xs">--show-image</td><td class="px-4 py-2">0&ndash;2</td><td class="px-4 py-2">Display mode</td></tr>
+              <tr class="bg-gray-50/50"><td class="px-4 py-2 font-mono text-xs">--winlock</td><td class="px-4 py-2">true/false</td><td class="px-4 py-2">Lock Windows key</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ==================== API ==================== -->
+      <section class="mb-12">
+        <h2 class="text-2xl font-bold mb-4" id="configure-with-api">Configure Using the API</h2>
+        <p class="text-gray-700 mb-4">Import the <code class="text-sm bg-gray-100 px-1.5 py-0.5 rounded">configureLights</code> function from the package and pass a configuration object. Any omitted properties use sensible defaults.</p>
+
+        <h3 class="font-semibold mb-2">Set a rainbow cycle effect</h3>
+        <pre class="bg-gray-900 text-gray-100 rounded-xl p-4 overflow-x-auto text-sm mb-4"><code><span class="code-keyword">import</span> <span class="code-punct">{</span> configureLights <span class="code-punct">}</span> <span class="code-keyword">from</span> <span class="code-string">"./src/configureLights.js"</span><span class="code-punct">;</span>
+
+<span class="code-keyword">await</span> <span class="code-fn">configureLights</span><span class="code-punct">({</span>
+  underglow<span class="code-punct">:</span> <span class="code-punct">{</span>
+    effect<span class="code-punct">:</span> <span class="code-number">11</span><span class="code-punct">,</span>  <span class="code-comment">// rainbow-cycle</span>
+    brightness<span class="code-punct">:</span> <span class="code-number">7</span><span class="code-punct">,</span>
+    speed<span class="code-punct">:</span> <span class="code-number">4</span><span class="code-punct">,</span>
+  <span class="code-punct">}</span>
+<span class="code-punct">});</span></code></pre>
+
+        <h3 class="font-semibold mb-2">Set a static custom color</h3>
+        <pre class="bg-gray-900 text-gray-100 rounded-xl p-4 overflow-x-auto text-sm mb-4"><code><span class="code-keyword">await</span> <span class="code-fn">configureLights</span><span class="code-punct">({</span>
+  underglow<span class="code-punct">:</span> <span class="code-punct">{</span>
+    effect<span class="code-punct">:</span> <span class="code-number">6</span><span class="code-punct">,</span>       <span class="code-comment">// full-one-color (static)</span>
+    brightness<span class="code-punct">:</span> <span class="code-number">5</span><span class="code-punct">,</span>
+    rainbow<span class="code-punct">:</span> <span class="code-number">0</span><span class="code-punct">,</span>      <span class="code-comment">// disable rainbow to use custom color</span>
+    hue<span class="code-punct">:</span> <span class="code-punct">{</span>
+      red<span class="code-punct">:</span> <span class="code-number">255</span><span class="code-punct">,</span>
+      green<span class="code-punct">:</span> <span class="code-number">100</span><span class="code-punct">,</span>
+      blue<span class="code-punct">:</span> <span class="code-number">0</span><span class="code-punct">,</span>      <span class="code-comment">// warm orange</span>
+    <span class="code-punct">}</span>
+  <span class="code-punct">}</span>
+<span class="code-punct">});</span></code></pre>
+
+        <h3 class="font-semibold mb-2">Full configuration example</h3>
+        <pre class="bg-gray-900 text-gray-100 rounded-xl p-4 overflow-x-auto text-sm mb-4"><code><span class="code-keyword">await</span> <span class="code-fn">configureLights</span><span class="code-punct">({</span>
+  underglow<span class="code-punct">:</span> <span class="code-punct">{</span>
+    effect<span class="code-punct">:</span> <span class="code-number">5</span><span class="code-punct">,</span>       <span class="code-comment">// breathing</span>
+    brightness<span class="code-punct">:</span> <span class="code-number">6</span><span class="code-punct">,</span>
+    speed<span class="code-punct">:</span> <span class="code-number">3</span><span class="code-punct">,</span>
+    orientation<span class="code-punct">:</span> <span class="code-number">0</span><span class="code-punct">,</span> <span class="code-comment">// left-to-right</span>
+    rainbow<span class="code-punct">:</span> <span class="code-number">0</span><span class="code-punct">,</span>
+    hue<span class="code-punct">:</span> <span class="code-punct">{</span> red<span class="code-punct">:</span> <span class="code-number">0</span><span class="code-punct">,</span> green<span class="code-punct">:</span> <span class="code-number">200</span><span class="code-punct">,</span> blue<span class="code-punct">:</span> <span class="code-number">255</span> <span class="code-punct">}</span>
+  <span class="code-punct">},</span>
+  led<span class="code-punct">:</span> <span class="code-punct">{</span>
+    mode<span class="code-punct">:</span> <span class="code-number">3</span><span class="code-punct">,</span>        <span class="code-comment">// fixed color</span>
+    color<span class="code-punct">:</span> <span class="code-number">5</span><span class="code-punct">,</span>       <span class="code-comment">// blue</span>
+    saturation<span class="code-punct">:</span> <span class="code-number">7</span><span class="code-punct">,</span>
+    rainbow<span class="code-punct">:</span> <span class="code-number">0</span><span class="code-punct">,</span>
+  <span class="code-punct">},</span>
+  showImage<span class="code-punct">:</span> <span class="code-number">0</span><span class="code-punct">,</span>     <span class="code-comment">// show clock</span>
+<span class="code-punct">});</span></code></pre>
+      </section>
+
+      <!-- ==================== TIPS ==================== -->
+      <section class="mb-12">
+        <h2 class="text-2xl font-bold mb-4" id="tips">Tips</h2>
+        <ul class="space-y-3 text-gray-700">
+          <li class="flex gap-3">
+            <span class="text-gray-400 mt-0.5 shrink-0">&bull;</span>
+            <span>When using a custom color, always set <code class="text-sm bg-gray-100 px-1.5 py-0.5 rounded">rainbow: 0</code> (or <code class="text-sm bg-gray-100 px-1.5 py-0.5 rounded">--rainbow false</code> in CLI). Otherwise the keyboard ignores your RGB values and cycles through its built-in rainbow palette.</span>
+          </li>
+          <li class="flex gap-3">
+            <span class="text-gray-400 mt-0.5 shrink-0">&bull;</span>
+            <span>You only need to pass the settings you want to change. Everything else keeps its default or current value.</span>
+          </li>
+          <li class="flex gap-3">
+            <span class="text-gray-400 mt-0.5 shrink-0">&bull;</span>
+            <span>The <code class="text-sm bg-gray-100 px-1.5 py-0.5 rounded">--orientation</code> flag flips the direction of directional effects (0 = left-to-right, 1 = right-to-left).</span>
+          </li>
+          <li class="flex gap-3">
+            <span class="text-gray-400 mt-0.5 shrink-0">&bull;</span>
+            <span>Use <code class="text-sm bg-gray-100 px-1.5 py-0.5 rounded">DEBUG=1</code> before any command to see the raw HID protocol packets for troubleshooting.</span>
+          </li>
+        </ul>
+      </section>
+
+      <!-- ==================== RELATED ==================== -->
+      <section class="mb-8 p-5 bg-gray-50 rounded-xl border border-gray-200">
+        <h2 class="text-lg font-semibold mb-3">Related guides</h2>
+        <ul class="space-y-2 text-sm">
+          <li><a href="./" class="text-blue-600 hover:underline">All How-To Guides</a></li>
+          <li><a href="../#features" class="text-blue-600 hover:underline">GMK87 Configurator Features</a></li>
+          <li><a href="../#download" class="text-blue-600 hover:underline">Download the App</a></li>
+        </ul>
+      </section>
+
+    </article>
+  </main>
+
+  <footer class="bg-[#0a0c12] text-gray-500 py-12 px-6 border-t border-gray-800">
+    <div class="max-w-4xl mx-auto text-center text-sm">
+      <p class="mb-3">MIT License. Made by <a href="https://github.com/codedgar" class="text-gray-400 hover:text-white transition-colors">Codedgar</a></p>
+      <p class="mb-4">
+        <a href="https://github.com/codedgar/gmk87-node" class="text-gray-400 hover:text-white transition-colors">GitHub</a>
+        <span class="mx-2">&middot;</span>
+        <a href="https://github.com/codedgar/gmk87-node/releases/latest" class="text-gray-400 hover:text-white transition-colors">Releases</a>
+      </p>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById('mobile-menu-btn').addEventListener('click', function() {
+      document.getElementById('mobile-menu').classList.toggle('hidden');
+    });
+  </script>
+
+</body>
+</html>

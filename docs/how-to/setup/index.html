@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>How to Set Up the GMK87 Keyboard on macOS and Linux - GMK87 Configurator</title>
+  <meta name="description" content="Step-by-step guide to set up and configure your Zuoya GMK87 keyboard on macOS, Linux, and Windows. Upload images to the screen, sync the clock, and control lighting without the official Windows-only software.">
+  <meta name="keywords" content="GMK87 macOS setup, GMK87 Linux, Zuoya GMK87 software alternative, GMK87 screen configurator, GMK87 keyboard display, GMK87 macOS, configure GMK87 screen on macOS">
+
+  <!-- Canonical -->
+  <link rel="canonical" href="https://codedgar.github.io/gmk87-node/how-to/setup/">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="../../icon.svg">
+  <link rel="icon" type="image/png" href="../../icon.png">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="article">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:title" content="How to Set Up the GMK87 Keyboard on macOS and Linux">
+  <meta property="og:description" content="The official Zuoya software only works on Windows. Here's how to configure your GMK87 keyboard screen, lighting, and clock on macOS and Linux using the open-source GMK87 Configurator.">
+  <meta property="og:url" content="https://codedgar.github.io/gmk87-node/how-to/setup/">
+  <meta property="og:image" content="https://codedgar.github.io/gmk87-node/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:site_name" content="GMK87 Configurator">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="How to Set Up the GMK87 Keyboard on macOS and Linux">
+  <meta name="twitter:description" content="The official Zuoya software only works on Windows. Here's how to configure your GMK87 keyboard screen, lighting, and clock on macOS and Linux.">
+  <meta name="twitter:image" content="https://codedgar.github.io/gmk87-node/og-image.png">
+
+  <!-- Theme color -->
+  <meta name="theme-color" content="#ffffff">
+
+  <!-- Structured Data: HowTo -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    "name": "How to Set Up the GMK87 Keyboard on macOS and Linux",
+    "description": "Step-by-step guide to configure your Zuoya GMK87 keyboard on macOS, Linux, and Windows using the open-source GMK87 Configurator. Upload images to the screen, sync the clock, and control lighting.",
+    "image": "https://codedgar.github.io/gmk87-node/og-image.png",
+    "totalTime": "PT5M",
+    "tool": [
+      {
+        "@type": "HowToTool",
+        "name": "GMK87 Configurator App or CLI"
+      },
+      {
+        "@type": "HowToTool",
+        "name": "Node.js 18 or later (for CLI only)"
+      }
+    ],
+    "supply": [
+      {
+        "@type": "HowToSupply",
+        "name": "Zuoya GMK87 keyboard"
+      },
+      {
+        "@type": "HowToSupply",
+        "name": "USB cable"
+      }
+    ],
+    "step": [
+      {
+        "@type": "HowToStep",
+        "name": "Download the GMK87 Configurator",
+        "text": "Go to the GitHub releases page and download the correct installer for your operating system: .dmg for macOS, .AppImage or .deb for Linux, or .exe for Windows.",
+        "url": "https://codedgar.github.io/gmk87-node/how-to/setup/#step-download"
+      },
+      {
+        "@type": "HowToStep",
+        "name": "Connect your GMK87 keyboard",
+        "text": "Plug your GMK87 keyboard into your computer using the USB cable. The keyboard must be connected via USB (not Bluetooth) for the configurator to communicate with it.",
+        "url": "https://codedgar.github.io/gmk87-node/how-to/setup/#step-connect"
+      },
+      {
+        "@type": "HowToStep",
+        "name": "Set up permissions (Linux only)",
+        "text": "On Linux, create a udev rule to allow access to the keyboard HID device without root. Create /etc/udev/rules.d/99-gmk87.rules with the appropriate rule and reload udev.",
+        "url": "https://codedgar.github.io/gmk87-node/how-to/setup/#step-linux-permissions"
+      },
+      {
+        "@type": "HowToStep",
+        "name": "Sync the clock",
+        "text": "Open the GMK87 Configurator app and click Time Sync, or run npx gmk87 timesync from the terminal. This sets the keyboard's built-in clock to your computer's current time.",
+        "url": "https://codedgar.github.io/gmk87-node/how-to/setup/#step-timesync"
+      },
+      {
+        "@type": "HowToStep",
+        "name": "Upload an image to the screen",
+        "text": "Use the app's image upload feature or run npx gmk87 upload path/to/image.png from the terminal to upload a custom image to your keyboard's built-in display.",
+        "url": "https://codedgar.github.io/gmk87-node/how-to/setup/#step-upload"
+      },
+      {
+        "@type": "HowToStep",
+        "name": "Configure lighting",
+        "text": "Use the app or run npx gmk87 lights to configure your keyboard's RGB lighting effects, brightness, and speed.",
+        "url": "https://codedgar.github.io/gmk87-node/how-to/setup/#step-lighting"
+      }
+    ]
+  }
+  </script>
+
+  <!-- Structured Data: BreadcrumbList -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": "https://codedgar.github.io/gmk87-node/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "How To",
+        "item": "https://codedgar.github.io/gmk87-node/how-to/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 3,
+        "name": "Setup",
+        "item": "https://codedgar.github.io/gmk87-node/how-to/setup/"
+      }
+    ]
+  }
+  </script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"Segoe UI"', 'system-ui', 'Roboto', 'sans-serif'],
+            mono: ['"SF Mono"', '"Fira Code"', '"Cascadia Code"', 'Consolas', 'monospace'],
+          },
+        },
+      },
+    }
+  </script>
+  <style>
+    .prose h2 { scroll-margin-top: 5rem; }
+    .prose h3 { scroll-margin-top: 5rem; }
+    .step-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2rem;
+      height: 2rem;
+      border-radius: 9999px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: white;
+      font-weight: 700;
+      font-size: 0.875rem;
+      flex-shrink: 0;
+    }
+    code:not(pre code) {
+      background: #f3f4f6;
+      padding: 0.15em 0.4em;
+      border-radius: 0.25rem;
+      font-size: 0.9em;
+    }
+    pre {
+      background: #111827 !important;
+      color: #e5e7eb;
+      border-radius: 0.5rem;
+      padding: 1rem 1.25rem;
+      overflow-x: auto;
+      font-size: 0.875rem;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body class="bg-white text-gray-900">
+
+  <!-- Nav -->
+  <nav id="navbar" class="sticky top-0 z-50 backdrop-blur-md border-b bg-white/80 border-gray-200 text-gray-900">
+    <div class="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+      <a href="../../" class="flex items-center gap-2.5 no-underline" style="color:inherit;">
+        <img src="../../icon.png" alt="GMK87" width="28" height="28" class="drop-shadow">
+        <span class="font-semibold text-base">GMK87</span>
+      </a>
+      <div class="hidden md:flex items-center gap-6 text-sm" style="color:inherit;">
+        <a href="../../#features" style="color:inherit;" class="opacity-60 hover:opacity-100 transition-opacity no-underline">Features</a>
+        <a href="../../#download" style="color:inherit;" class="opacity-60 hover:opacity-100 transition-opacity no-underline">Download</a>
+        <a href="../" style="color:inherit;" class="opacity-60 hover:opacity-100 transition-opacity no-underline">How To</a>
+        <a href="https://github.com/codedgar/gmk87-node" style="color:inherit;" class="opacity-60 hover:opacity-100 transition-opacity no-underline">GitHub</a>
+      </div>
+      <button id="mobile-menu-btn" class="md:hidden p-2 opacity-60">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg>
+      </button>
+    </div>
+    <div id="mobile-menu" class="hidden md:hidden border-t px-6 pb-4" style="border-color:inherit;">
+      <a href="../../#features" class="block py-2 text-sm opacity-70" style="color:inherit;">Features</a>
+      <a href="../../#download" class="block py-2 text-sm opacity-70" style="color:inherit;">Download</a>
+      <a href="../" class="block py-2 text-sm opacity-70" style="color:inherit;">How To</a>
+      <a href="https://github.com/codedgar/gmk87-node" class="block py-2 text-sm opacity-70" style="color:inherit;">GitHub</a>
+    </div>
+  </nav>
+
+  <!-- Breadcrumbs -->
+  <div class="max-w-3xl mx-auto px-6 pt-6">
+    <nav aria-label="Breadcrumb" class="text-sm text-gray-500">
+      <ol class="flex items-center gap-1.5">
+        <li><a href="../../" class="hover:text-gray-900 transition-colors">Home</a></li>
+        <li class="before:content-['/'] before:mx-1.5 before:text-gray-300"><a href="../" class="hover:text-gray-900 transition-colors">How To</a></li>
+        <li class="before:content-['/'] before:mx-1.5 before:text-gray-300"><span class="text-gray-900 font-medium">Setup</span></li>
+      </ol>
+    </nav>
+  </div>
+
+  <!-- Main Content -->
+  <main class="max-w-3xl mx-auto px-6 py-10 prose">
+
+    <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-gray-900 mb-4">How to Set Up the GMK87 Keyboard on macOS and Linux</h1>
+
+    <p class="text-lg text-gray-600 mb-8 leading-relaxed">
+      The Zuoya GMK87 (also sold as the GMK87) ships with a built-in LCD screen, RGB lighting, and a real-time clock. However, the official configuration software <strong>only works on Windows</strong>. If you use macOS or Linux, you have no way to upload images to the screen, sync the clock, or fine-tune lighting with the stock tools.
+    </p>
+
+    <p class="text-lg text-gray-600 mb-8 leading-relaxed">
+      The <strong>GMK87 Configurator</strong> is a free, open-source alternative that works on <strong>macOS, Linux, and Windows</strong>. It is currently the only way to configure the GMK87 keyboard screen and display on macOS and Linux.
+    </p>
+
+    <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-5 mb-10">
+      <p class="text-sm font-semibold text-indigo-900 mb-1">What you can do with the GMK87 Configurator</p>
+      <ul class="text-sm text-indigo-800 space-y-1 mb-0 list-disc list-inside">
+        <li>Upload custom images to the keyboard's built-in LCD screen</li>
+        <li>Sync the keyboard's clock to your computer's time</li>
+        <li>Configure RGB lighting effects, brightness, speed, and color</li>
+        <li>Works via a desktop app (recommended) or command-line interface</li>
+      </ul>
+    </div>
+
+    <!-- Table of Contents -->
+    <div class="bg-gray-50 border border-gray-200 rounded-xl p-5 mb-10">
+      <p class="text-sm font-semibold text-gray-900 mb-3">On this page</p>
+      <ul class="text-sm text-gray-600 space-y-1.5 mb-0 list-none pl-0">
+        <li><a href="#prerequisites" class="hover:text-gray-900 transition-colors">Prerequisites</a></li>
+        <li><a href="#macos-setup" class="hover:text-gray-900 transition-colors">Setup on macOS</a></li>
+        <li><a href="#linux-setup" class="hover:text-gray-900 transition-colors">Setup on Linux</a></li>
+        <li><a href="#windows-setup" class="hover:text-gray-900 transition-colors">Setup on Windows</a></li>
+        <li><a href="#initial-configuration" class="hover:text-gray-900 transition-colors">Initial configuration (all platforms)</a></li>
+        <li><a href="#cli-setup" class="hover:text-gray-900 transition-colors">Using the CLI instead of the app</a></li>
+        <li><a href="#troubleshooting" class="hover:text-gray-900 transition-colors">Troubleshooting</a></li>
+      </ul>
+    </div>
+
+    <!-- Prerequisites -->
+    <h2 id="prerequisites" class="text-2xl font-bold text-gray-900 mt-12 mb-4">Prerequisites</h2>
+
+    <ul class="text-gray-700 space-y-2 mb-6">
+      <li><strong>A Zuoya GMK87 keyboard</strong> (the 87-key model with the built-in LCD screen).</li>
+      <li><strong>A USB connection.</strong> The configurator communicates over USB HID. Bluetooth will not work for configuration.</li>
+      <li><strong>For the desktop app:</strong> No additional dependencies needed. Just download and run.</li>
+      <li><strong>For the CLI:</strong> <a href="https://nodejs.org/" class="text-indigo-600 hover:text-indigo-800">Node.js 18</a> or later.</li>
+    </ul>
+
+    <!-- macOS Setup -->
+    <h2 id="macos-setup" class="text-2xl font-bold text-gray-900 mt-14 mb-4">Setup on macOS</h2>
+
+    <p class="text-gray-600 mb-6">macOS is the most straightforward platform. No drivers or special permissions are required -- HID access works out of the box.</p>
+
+    <div class="space-y-6 mb-8">
+
+      <!-- Step 1 -->
+      <div id="step-download" class="flex gap-4">
+        <span class="step-number mt-0.5">1</span>
+        <div>
+          <h3 class="text-lg font-semibold text-gray-900 mb-1 mt-0">Download the GMK87 Configurator</h3>
+          <p class="text-gray-600 mb-2">Go to the <a href="https://github.com/codedgar/gmk87-node/releases/latest" class="text-indigo-600 hover:text-indigo-800">latest release page</a> and download the <code>.dmg</code> file for macOS.</p>
+          <p class="text-gray-500 text-sm">Choose the <code>arm64</code> build for Apple Silicon Macs (M1/M2/M3/M4) or the <code>x64</code> build for Intel Macs.</p>
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="flex gap-4">
+        <span class="step-number mt-0.5">2</span>
+        <div>
+          <h3 class="text-lg font-semibold text-gray-900 mb-1 mt-0">Install the app</h3>
+          <p class="text-gray-600 mb-2">Open the <code>.dmg</code> file and drag the GMK87 Configurator into your Applications folder.</p>
+          <p class="text-gray-500 text-sm">On first launch, macOS may show a security prompt. Go to <strong>System Settings &gt; Privacy &amp; Security</strong> and click <strong>"Open Anyway"</strong>.</p>
+        </div>
+      </div>
+
+      <!-- Step 3 -->
+      <div id="step-connect" class="flex gap-4">
+        <span class="step-number mt-0.5">3</span>
+        <div>
+          <h3 class="text-lg font-semibold text-gray-900 mb-1 mt-0">Connect your keyboard via USB</h3>
+          <p class="text-gray-600">Plug your GMK87 into your Mac using the USB cable. Make sure the keyboard is powered on. The configurator will automatically detect it.</p>
+        </div>
+      </div>
+
+      <!-- Step 4 -->
+      <div class="flex gap-4">
+        <span class="step-number mt-0.5">4</span>
+        <div>
+          <h3 class="text-lg font-semibold text-gray-900 mb-1 mt-0">Launch the app and configure</h3>
+          <p class="text-gray-600">Open the GMK87 Configurator from your Applications folder. You can now <a href="#initial-configuration" class="text-indigo-600 hover:text-indigo-800">sync the clock, upload images, and configure lighting</a>.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Linux Setup -->
+    <h2 id="linux-setup" class="text-2xl font-bold text-gray-900 mt-14 mb-4">Setup on Linux</h2>
+
+    <p class="text-gray-600 mb-6">Linux requires one extra step: setting up a <strong>udev rule</strong> so the configurator can access the keyboard's HID interface without root privileges.</p>
+
+    <div class="space-y-6 mb-8">
+
+      <!-- Step 1 -->
+      <div class="flex gap-4">
+        <span class="step-number mt-0.5">1</span>
+        <div>
+          <h3 class="text-lg font-semibold text-gray-900 mb-1 mt-0">Download the GMK87 Configurator</h3>
+          <p class="text-gray-600">Go to the <a href="https://github.com/codedgar/gmk87-node/releases/latest" class="text-indigo-600 hover:text-indigo-800">latest release page</a> and download the <code>.AppImage</code> or <code>.deb</code> file for Linux.</p>
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div id="step-linux-permissions" class="flex gap-4">
+        <span class="step-number mt-0.5">2</span>
+        <div>
+          <h3 class="text-lg font-semibold text-gray-900 mb-1 mt-0">Create a udev rule for HID access</h3>
+          <p class="text-gray-600 mb-3">Without this rule, only <code>root</code> can communicate with the keyboard over HID. Create a udev rule file:</p>
+          <pre><code>sudo nano /etc/udev/rules.d/99-gmk87.rules</code></pre>
+          <p class="text-gray-600 mt-3 mb-3">Add the following line (the GMK87 uses vendor ID <code>0x05ac</code> and product ID <code>0x024f</code>):</p>
+          <pre><code>KERNEL=="hidraw*", ATTRS{idVendor}=="05ac", ATTRS{idProduct}=="024f", MODE="0666"</code></pre>
+          <p class="text-gray-600 mt-3 mb-3">Then reload udev rules and re-plug the keyboard:</p>
+          <pre><code>sudo udevadm control --reload-rules
+sudo udevadm trigger</code></pre>
+          <p class="text-gray-500 text-sm mt-2">Alternatively, unplug and replug the keyboard after reloading the rules.</p>
+        </div>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="flex gap-4">
+        <span class="step-number mt-0.5">3</span>
+        <div>
+          <h3 class="text-lg font-semibold text-gray-900 mb-1 mt-0">Make the AppImage executable (if using AppImage)</h3>
+          <pre><code>chmod +x GMK87-Configurator-*.AppImage</code></pre>
+        </div>
+      </div>
+
+      <!-- Step 4 -->
+      <div class="flex gap-4">
+        <span class="step-number mt-0.5">4</span>
+        <div>
+          <h3 class="text-lg font-semibold text-gray-900 mb-1 mt-0">Connect your keyboard and launch</h3>
+          <p class="text-gray-600">Plug in your GMK87 via USB and run the app. You can now <a href="#initial-configuration" class="text-indigo-600 hover:text-indigo-800">sync the clock, upload images, and configure lighting</a>.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Windows Setup -->
+    <h2 id="windows-setup" class="text-2xl font-bold text-gray-900 mt-14 mb-4">Setup on Windows</h2>
+
+    <p class="text-gray-600 mb-6">While the official Zuoya software works on Windows, you may still prefer the GMK87 Configurator for its simpler interface or to avoid the stock Chinese-language software.</p>
+
+    <div class="space-y-6 mb-8">
+
+      <div class="flex gap-4">
+        <span class="step-number mt-0.5">1</span>
+        <div>
+          <h3 class="text-lg font-semibold text-gray-900 mb-1 mt-0">Download and install</h3>
+          <p class="text-gray-600">Go to the <a href="https://github.com/codedgar/gmk87-node/releases/latest" class="text-indigo-600 hover:text-indigo-800">latest release page</a> and download the <code>.exe</code> installer. Run it and follow the prompts.</p>
+        </div>
+      </div>
+
+      <div class="flex gap-4">
+        <span class="step-number mt-0.5">2</span>
+        <div>
+          <h3 class="text-lg font-semibold text-gray-900 mb-1 mt-0">Connect your keyboard and launch</h3>
+          <p class="text-gray-600">Plug in the GMK87 via USB and open the GMK87 Configurator from the Start Menu. No special drivers or permissions needed.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Initial Configuration -->
+    <h2 id="initial-configuration" class="text-2xl font-bold text-gray-900 mt-14 mb-4">Initial Configuration (All Platforms)</h2>
+
+    <p class="text-gray-600 mb-6">Once the app is installed and your keyboard is connected, here is what you should do first:</p>
+
+    <div class="space-y-6 mb-8">
+
+      <div id="step-timesync" class="flex gap-4">
+        <span class="step-number mt-0.5">1</span>
+        <div>
+          <h3 class="text-lg font-semibold text-gray-900 mb-1 mt-0">Sync the clock</h3>
+          <p class="text-gray-600 mb-2">The GMK87 has a built-in clock displayed on its screen, but it does not sync automatically. Every time you want to update the time, you need to sync it manually.</p>
+          <p class="text-gray-600">In the app, click the <strong>Time Sync</strong> button. The keyboard's clock will update to your computer's current time within a second.</p>
+        </div>
+      </div>
+
+      <div id="step-upload" class="flex gap-4">
+        <span class="step-number mt-0.5">2</span>
+        <div>
+          <h3 class="text-lg font-semibold text-gray-900 mb-1 mt-0">Upload an image to the screen</h3>
+          <p class="text-gray-600 mb-2">The keyboard's LCD screen can display a custom image. In the app, use the <strong>Image Upload</strong> feature to select any image file. The configurator will automatically resize and convert it for the keyboard's display.</p>
+          <p class="text-gray-500 text-sm">Supported formats: PNG, JPG, BMP, and other common image formats. The image will be resized to fit the keyboard's screen resolution.</p>
+        </div>
+      </div>
+
+      <div id="step-lighting" class="flex gap-4">
+        <span class="step-number mt-0.5">3</span>
+        <div>
+          <h3 class="text-lg font-semibold text-gray-900 mb-1 mt-0">Configure lighting (optional)</h3>
+          <p class="text-gray-600">Use the <strong>Lighting</strong> section to adjust RGB effects, brightness, and animation speed. Changes are applied immediately and saved to the keyboard.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- CLI Setup -->
+    <h2 id="cli-setup" class="text-2xl font-bold text-gray-900 mt-14 mb-4">Using the CLI Instead of the App</h2>
+
+    <p class="text-gray-600 mb-6">If you prefer the command line, or need to script keyboard configuration, you can use the GMK87 CLI directly. This requires <a href="https://nodejs.org/" class="text-indigo-600 hover:text-indigo-800">Node.js 18+</a>.</p>
+
+    <h3 class="text-lg font-semibold text-gray-900 mt-8 mb-3">Install the CLI</h3>
+    <pre><code>npm install -g gmk87</code></pre>
+
+    <p class="text-gray-600 mt-4 mb-3">Or run it without installing using <code>npx</code>:</p>
+    <pre><code>npx gmk87</code></pre>
+
+    <h3 class="text-lg font-semibold text-gray-900 mt-8 mb-3">Sync the clock</h3>
+    <pre><code>npx gmk87 timesync</code></pre>
+
+    <h3 class="text-lg font-semibold text-gray-900 mt-8 mb-3">Upload an image to the screen</h3>
+    <pre><code>npx gmk87 upload path/to/your-image.png</code></pre>
+
+    <h3 class="text-lg font-semibold text-gray-900 mt-8 mb-3">Configure lighting</h3>
+    <pre><code>npx gmk87 lights</code></pre>
+
+    <div class="bg-amber-50 border border-amber-200 rounded-xl p-5 mt-6 mb-8">
+      <p class="text-sm font-semibold text-amber-900 mb-1">Linux CLI users</p>
+      <p class="text-sm text-amber-800 mb-0">You still need the udev rule described in the <a href="#step-linux-permissions" class="text-amber-900 underline">Linux setup section</a> above, even when using the CLI. Without it, you would need to run commands with <code>sudo</code>.</p>
+    </div>
+
+    <!-- Troubleshooting -->
+    <h2 id="troubleshooting" class="text-2xl font-bold text-gray-900 mt-14 mb-4">Troubleshooting</h2>
+
+    <div class="space-y-6 mb-8">
+
+      <div>
+        <h3 class="text-lg font-semibold text-gray-900 mb-2 mt-0">"Keyboard not found" or "No device detected"</h3>
+        <ul class="text-gray-600 space-y-1 list-disc list-inside">
+          <li>Make sure the keyboard is connected via <strong>USB</strong>, not Bluetooth.</li>
+          <li>Try a different USB port or cable.</li>
+          <li>On Linux, verify the udev rule is in place and you have reloaded rules (<code>sudo udevadm control --reload-rules</code>).</li>
+          <li>On macOS, check that no other application (like the official Zuoya software in a VM) is holding the HID device open.</li>
+        </ul>
+      </div>
+
+      <div>
+        <h3 class="text-lg font-semibold text-gray-900 mb-2 mt-0">macOS "app is damaged" or security warning</h3>
+        <p class="text-gray-600">Go to <strong>System Settings &gt; Privacy &amp; Security</strong>, scroll down, and click <strong>"Open Anyway"</strong> next to the GMK87 Configurator entry. This only needs to be done once.</p>
+      </div>
+
+      <div>
+        <h3 class="text-lg font-semibold text-gray-900 mb-2 mt-0">Image upload seems stuck or fails</h3>
+        <ul class="text-gray-600 space-y-1 list-disc list-inside">
+          <li>Unplug the keyboard, wait a few seconds, and plug it back in.</li>
+          <li>Make sure no other program is communicating with the keyboard at the same time.</li>
+          <li>Try a smaller image file first to rule out file format issues.</li>
+        </ul>
+      </div>
+
+      <div>
+        <h3 class="text-lg font-semibold text-gray-900 mb-2 mt-0">Clock resets after unplugging</h3>
+        <p class="text-gray-600">The GMK87 has a small internal battery to keep the clock running. If the clock resets frequently, the internal battery may be low. Re-syncing the time after each USB connection is the simplest workaround.</p>
+      </div>
+
+    </div>
+
+    <!-- Related Guides -->
+    <div class="bg-gray-50 border border-gray-200 rounded-xl p-5 mt-12 mb-4">
+      <p class="text-sm font-semibold text-gray-900 mb-3">Related guides</p>
+      <ul class="text-sm text-gray-600 space-y-1.5 mb-0 list-none pl-0">
+        <li><a href="../" class="text-indigo-600 hover:text-indigo-800">All How-To guides</a></li>
+        <li><a href="../../" class="text-indigo-600 hover:text-indigo-800">GMK87 Configurator homepage</a></li>
+        <li><a href="https://github.com/codedgar/gmk87-node" class="text-indigo-600 hover:text-indigo-800">GitHub repository and documentation</a></li>
+        <li><a href="https://github.com/codedgar/gmk87-node/releases/latest" class="text-indigo-600 hover:text-indigo-800">Download the latest release</a></li>
+      </ul>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-[#0a0c12] text-gray-500 py-12 px-6 border-t border-gray-800">
+    <div class="max-w-4xl mx-auto text-center text-sm">
+      <p class="mb-3">MIT License. Made by <a href="https://github.com/codedgar" class="text-gray-400 hover:text-white transition-colors">Codedgar</a></p>
+      <p class="mb-4">
+        <a href="https://github.com/codedgar/gmk87-node" class="text-gray-400 hover:text-white transition-colors">GitHub</a>
+        <span class="mx-2">&middot;</span>
+        <a href="https://github.com/codedgar/gmk87-node/releases/latest" class="text-gray-400 hover:text-white transition-colors">Releases</a>
+      </p>
+    </div>
+  </footer>
+
+  <!-- Mobile menu toggle -->
+  <script>
+    document.getElementById('mobile-menu-btn').addEventListener('click', () => {
+      document.getElementById('mobile-menu').classList.toggle('hidden');
+    });
+  </script>
+
+</body>
+</html>

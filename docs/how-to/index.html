@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GMK87 Keyboard Guides - How to Configure Your Zuoya GMK87</title>
+  <meta name="description" content="GMK87 guides and tutorials. Learn how to configure your Zuoya GMK87 keyboard: upload images, set up lighting, sync time, and more on macOS, Windows, and Linux.">
+
+  <!-- Canonical -->
+  <link rel="canonical" href="https://codedgar.github.io/gmk87-node/how-to/">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="../icon.svg">
+  <link rel="icon" type="image/png" href="../icon.png">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:title" content="GMK87 Keyboard Guides - How to Configure Your Zuoya GMK87">
+  <meta property="og:description" content="GMK87 guides and tutorials. Learn how to configure your Zuoya GMK87 keyboard: upload images, set up lighting, sync time, and more on macOS, Windows, and Linux.">
+  <meta property="og:url" content="https://codedgar.github.io/gmk87-node/how-to/">
+  <meta property="og:image" content="https://codedgar.github.io/gmk87-node/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="GMK87 Keyboard Guides - How to Configure Your Zuoya GMK87">
+  <meta name="twitter:description" content="GMK87 guides and tutorials. Learn how to configure your Zuoya GMK87 keyboard: upload images, set up lighting, sync time, and more.">
+  <meta name="twitter:image" content="https://codedgar.github.io/gmk87-node/og-image.png">
+
+  <!-- Theme color -->
+  <meta name="theme-color" content="#ffffff">
+
+  <!-- Structured Data: BreadcrumbList -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": "https://codedgar.github.io/gmk87-node/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "How To",
+        "item": "https://codedgar.github.io/gmk87-node/how-to/"
+      }
+    ]
+  }
+  </script>
+
+  <!-- Structured Data: FAQPage -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "How do I configure the GMK87 screen on macOS?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "The official Zuoya software only works on Windows. The GMK87 Configurator is a free, open-source tool that lets you configure your GMK87 keyboard display, lighting, and clock on macOS, Windows, and Linux. Download the app from codedgar.github.io/gmk87-node or use the CLI."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How do I upload custom images to the GMK87 keyboard?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Use the GMK87 Configurator app to drag and drop images onto your keyboard display. The screen supports 240x135 resolution and accepts PNG, JPG, BMP, and animated GIFs up to 36 frames. You can also use the CLI: npm run sendimage -- --slot0 yourimage.png"
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Does the GMK87 work on Linux?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. The GMK87 Configurator supports Linux. Install the app or clone the repository and run npm install. You'll need to set up udev rules for USB access: sudo cp 50-gmk87.rules /etc/udev/rules.d/"
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Is there a GMK87 software alternative for Mac?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. The GMK87 Configurator is a free, open-source alternative to the official Zuoya software. It works on macOS, Windows, and Linux and provides the same functionality: image upload, lighting configuration, and time sync."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How do I change the RGB colors on my GMK87 keyboard?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Use the GMK87 Configurator app to visually pick colors, or use the CLI: npm run lights -- --effect rainbow-cycle --brightness 5. The keyboard supports 19 underglow effects and custom RGB values."
+        }
+      }
+    ]
+  }
+  </script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"Segoe UI"', 'system-ui', 'Roboto', 'sans-serif'],
+            mono: ['"SF Mono"', '"Fira Code"', '"Cascadia Code"', 'Consolas', 'monospace'],
+          },
+        },
+      },
+    }
+  </script>
+  <style>
+    .guide-card {
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .guide-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
+    }
+  </style>
+</head>
+<body class="bg-white text-gray-900 font-sans">
+
+  <nav id="navbar" class="sticky top-0 z-50 backdrop-blur-md border-b bg-white/80 border-gray-200 text-gray-900">
+    <div class="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+      <a href="../" class="flex items-center gap-2.5 no-underline" style="color:inherit;">
+        <img src="../icon.png" alt="GMK87" width="28" height="28" class="drop-shadow">
+        <span class="font-semibold text-base">GMK87</span>
+      </a>
+      <div class="hidden md:flex items-center gap-6 text-sm" style="color:inherit;">
+        <a href="../#features" style="color:inherit;" class="opacity-60 hover:opacity-100 transition-opacity no-underline">Features</a>
+        <a href="../#download" style="color:inherit;" class="opacity-60 hover:opacity-100 transition-opacity no-underline">Download</a>
+        <a href="./" style="color:inherit;" class="font-medium opacity-100 no-underline">How To</a>
+        <a href="https://github.com/codedgar/gmk87-node" style="color:inherit;" class="opacity-60 hover:opacity-100 transition-opacity no-underline">GitHub</a>
+      </div>
+      <button id="mobile-menu-btn" class="md:hidden p-2 opacity-60">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg>
+      </button>
+    </div>
+    <div id="mobile-menu" class="hidden md:hidden border-t px-6 pb-4" style="border-color:inherit;">
+      <a href="../#features" class="block py-2 text-sm opacity-70" style="color:inherit;">Features</a>
+      <a href="../#download" class="block py-2 text-sm opacity-70" style="color:inherit;">Download</a>
+      <a href="./" class="block py-2 text-sm font-medium" style="color:inherit;">How To</a>
+      <a href="https://github.com/codedgar/gmk87-node" class="block py-2 text-sm opacity-70" style="color:inherit;">GitHub</a>
+    </div>
+  </nav>
+
+  <main class="max-w-4xl mx-auto px-6 py-12">
+
+    <!-- Breadcrumb -->
+    <nav aria-label="Breadcrumb" class="mb-8 text-sm text-gray-500">
+      <ol class="flex items-center gap-1.5">
+        <li><a href="../" class="hover:text-gray-900 transition-colors">Home</a></li>
+        <li class="text-gray-300">/</li>
+        <li class="text-gray-900 font-medium">How To</li>
+      </ol>
+    </nav>
+
+    <!-- Hero -->
+    <header class="mb-14">
+      <h1 class="text-3xl sm:text-4xl font-bold tracking-tight mb-4">GMK87 Keyboard Guides - How to Configure Your Zuoya GMK87</h1>
+      <p class="text-lg text-gray-500 max-w-2xl">Step-by-step tutorials for setting up your GMK87 keyboard, uploading custom images, configuring RGB lighting, and more.</p>
+    </header>
+
+    <!-- Guide Cards -->
+    <section class="grid sm:grid-cols-2 gap-6 mb-20">
+
+      <!-- Setup Guide -->
+      <a href="setup/" class="guide-card block rounded-xl border border-gray-200 p-6 no-underline text-inherit bg-white">
+        <div class="w-11 h-11 rounded-lg bg-blue-50 flex items-center justify-center mb-4">
+          <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25A2.25 2.25 0 0 1 5.25 3h13.5A2.25 2.25 0 0 1 21 5.25Z"/>
+          </svg>
+        </div>
+        <h2 class="text-lg font-semibold mb-1.5">Setup Guide</h2>
+        <p class="text-sm text-gray-500 leading-relaxed">Install the GMK87 Configurator on macOS, Windows, or Linux and connect your keyboard for the first time.</p>
+      </a>
+
+      <!-- Upload Images -->
+      <a href="upload-images/" class="guide-card block rounded-xl border border-gray-200 p-6 no-underline text-inherit bg-white">
+        <div class="w-11 h-11 rounded-lg bg-violet-50 flex items-center justify-center mb-4">
+          <svg class="w-6 h-6 text-violet-600" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z"/>
+          </svg>
+        </div>
+        <h2 class="text-lg font-semibold mb-1.5">Upload Images</h2>
+        <p class="text-sm text-gray-500 leading-relaxed">Upload custom images and animated GIFs to the 240x135 display on your GMK87 keyboard.</p>
+      </a>
+
+      <!-- Configure Lighting -->
+      <a href="configure-lighting/" class="guide-card block rounded-xl border border-gray-200 p-6 no-underline text-inherit bg-white">
+        <div class="w-11 h-11 rounded-lg bg-amber-50 flex items-center justify-center mb-4">
+          <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 0 0 1.5-.189m-1.5.189a6.01 6.01 0 0 1-1.5-.189m3.75 7.478a12.06 12.06 0 0 1-4.5 0m3.75 2.383a14.406 14.406 0 0 1-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 1 0-7.517 0c.85.493 1.509 1.333 1.509 2.316V18"/>
+          </svg>
+        </div>
+        <h2 class="text-lg font-semibold mb-1.5">Configure Lighting</h2>
+        <p class="text-sm text-gray-500 leading-relaxed">Set up RGB underglow effects, adjust brightness, speed, and pick custom colors for your GMK87.</p>
+      </a>
+
+      <!-- Lighting Presets -->
+      <a href="lighting-presets/" class="guide-card block rounded-xl border border-gray-200 p-6 no-underline text-inherit bg-white">
+        <div class="w-11 h-11 rounded-lg bg-emerald-50 flex items-center justify-center mb-4">
+          <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4.098 19.902a3.75 3.75 0 0 0 5.304 0l6.401-6.402M6.75 21A3.75 3.75 0 0 1 3 17.25V4.125C3 3.504 3.504 3 4.125 3h5.25c.621 0 1.125.504 1.125 1.125v4.072M6.75 21a3.75 3.75 0 0 0 3.75-3.75V8.197M6.75 21h13.125c.621 0 1.125-.504 1.125-1.125v-5.25c0-.621-.504-1.125-1.125-1.125h-4.072M10.5 8.197l2.88-2.88c.438-.439 1.15-.439 1.59 0l3.712 3.713c.44.44.44 1.152 0 1.59l-2.879 2.88M6.75 17.25h.008v.008H6.75v-.008Z"/>
+          </svg>
+        </div>
+        <h2 class="text-lg font-semibold mb-1.5">Lighting Presets</h2>
+        <p class="text-sm text-gray-500 leading-relaxed">Browse all 19 built-in lighting effects and learn how to apply them via the app or CLI.</p>
+      </a>
+
+    </section>
+
+    <!-- FAQ Section -->
+    <section class="mb-16">
+      <h2 class="text-2xl font-bold tracking-tight mb-8">Frequently Asked Questions</h2>
+      <div class="space-y-4">
+
+        <details class="group border border-gray-200 rounded-lg">
+          <summary class="flex items-center justify-between cursor-pointer px-6 py-4 text-sm font-medium select-none">
+            How do I configure the GMK87 screen on macOS?
+            <svg class="w-5 h-5 text-gray-400 shrink-0 ml-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
+          </summary>
+          <div class="px-6 pb-4 text-sm text-gray-600 leading-relaxed">
+            The official Zuoya software only works on Windows. The GMK87 Configurator is a free, open-source tool that lets you configure your GMK87 keyboard display, lighting, and clock on macOS, Windows, and Linux. Download the app from <a href="https://codedgar.github.io/gmk87-node/" class="text-blue-600 hover:underline">codedgar.github.io/gmk87-node</a> or use the CLI.
+          </div>
+        </details>
+
+        <details class="group border border-gray-200 rounded-lg">
+          <summary class="flex items-center justify-between cursor-pointer px-6 py-4 text-sm font-medium select-none">
+            How do I upload custom images to the GMK87 keyboard?
+            <svg class="w-5 h-5 text-gray-400 shrink-0 ml-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
+          </summary>
+          <div class="px-6 pb-4 text-sm text-gray-600 leading-relaxed">
+            Use the GMK87 Configurator app to drag and drop images onto your keyboard display. The screen supports 240x135 resolution and accepts PNG, JPG, BMP, and animated GIFs up to 36 frames. You can also use the CLI: <code class="bg-gray-100 px-1.5 py-0.5 rounded font-mono text-xs">npm run sendimage -- --slot0 yourimage.png</code>
+          </div>
+        </details>
+
+        <details class="group border border-gray-200 rounded-lg">
+          <summary class="flex items-center justify-between cursor-pointer px-6 py-4 text-sm font-medium select-none">
+            Does the GMK87 work on Linux?
+            <svg class="w-5 h-5 text-gray-400 shrink-0 ml-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
+          </summary>
+          <div class="px-6 pb-4 text-sm text-gray-600 leading-relaxed">
+            Yes. The GMK87 Configurator supports Linux. Install the app or clone the repository and run <code class="bg-gray-100 px-1.5 py-0.5 rounded font-mono text-xs">npm install</code>. You'll need to set up udev rules for USB access: <code class="bg-gray-100 px-1.5 py-0.5 rounded font-mono text-xs">sudo cp 50-gmk87.rules /etc/udev/rules.d/</code>
+          </div>
+        </details>
+
+        <details class="group border border-gray-200 rounded-lg">
+          <summary class="flex items-center justify-between cursor-pointer px-6 py-4 text-sm font-medium select-none">
+            Is there a GMK87 software alternative for Mac?
+            <svg class="w-5 h-5 text-gray-400 shrink-0 ml-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
+          </summary>
+          <div class="px-6 pb-4 text-sm text-gray-600 leading-relaxed">
+            Yes. The GMK87 Configurator is a free, open-source alternative to the official Zuoya software. It works on macOS, Windows, and Linux and provides the same functionality: image upload, lighting configuration, and time sync.
+          </div>
+        </details>
+
+        <details class="group border border-gray-200 rounded-lg">
+          <summary class="flex items-center justify-between cursor-pointer px-6 py-4 text-sm font-medium select-none">
+            How do I change the RGB colors on my GMK87 keyboard?
+            <svg class="w-5 h-5 text-gray-400 shrink-0 ml-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
+          </summary>
+          <div class="px-6 pb-4 text-sm text-gray-600 leading-relaxed">
+            Use the GMK87 Configurator app to visually pick colors, or use the CLI: <code class="bg-gray-100 px-1.5 py-0.5 rounded font-mono text-xs">npm run lights -- --effect rainbow-cycle --brightness 5</code>. The keyboard supports 19 underglow effects and custom RGB values.
+          </div>
+        </details>
+
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="bg-[#0a0c12] text-gray-500 py-12 px-6 border-t border-gray-800">
+    <div class="max-w-4xl mx-auto text-center text-sm">
+      <p class="mb-3">MIT License. Made by <a href="https://github.com/codedgar" class="text-gray-400 hover:text-white transition-colors">Codedgar</a></p>
+      <p class="mb-4">
+        <a href="https://github.com/codedgar/gmk87-node" class="text-gray-400 hover:text-white transition-colors">GitHub</a>
+        <span class="mx-2">&middot;</span>
+        <a href="https://github.com/codedgar/gmk87-node/releases/latest" class="text-gray-400 hover:text-white transition-colors">Releases</a>
+      </p>
+    </div>
+  </footer>
+
+  <script>
+    const btn = document.getElementById('mobile-menu-btn');
+    const menu = document.getElementById('mobile-menu');
+    btn.addEventListener('click', () => menu.classList.toggle('hidden'));
+  </script>
+
+</body>
+</html>

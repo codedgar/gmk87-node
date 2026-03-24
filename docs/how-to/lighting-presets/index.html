@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GMK87 Lighting Presets and Effects - Configure Keyboard Lighting</title>
+  <meta name="description" content="Complete guide to GMK87 lighting presets, underglow effects, LED modes, and LED colors. Configure your Zuoya GMK87 keyboard lighting with built-in presets or custom combinations.">
+
+  <!-- Canonical -->
+  <link rel="canonical" href="https://codedgar.github.io/gmk87-node/how-to/lighting-presets/">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="../../icon.svg">
+  <link rel="icon" type="image/png" href="../../icon.png">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="article">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:title" content="GMK87 Lighting Presets and Effects">
+  <meta property="og:description" content="Complete guide to GMK87 lighting presets, underglow effects, LED modes, and LED colors. Configure your Zuoya GMK87 keyboard lighting with built-in presets or custom combinations.">
+  <meta property="og:url" content="https://codedgar.github.io/gmk87-node/how-to/lighting-presets/">
+  <meta property="og:image" content="https://codedgar.github.io/gmk87-node/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="GMK87 Lighting Presets and Effects">
+  <meta name="twitter:description" content="Complete guide to GMK87 lighting presets, underglow effects, LED modes, and LED colors. Configure your Zuoya GMK87 keyboard lighting.">
+  <meta name="twitter:image" content="https://codedgar.github.io/gmk87-node/og-image.png">
+
+  <!-- Theme color -->
+  <meta name="theme-color" content="#ffffff">
+
+  <!-- Keywords -->
+  <meta name="keywords" content="GMK87 lighting presets, GMK87 lighting effects, GMK87 preset modes, Zuoya GMK87 keyboard lighting, GMK87 underglow, GMK87 LED configuration">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    code { font-size: 0.9em; }
+    pre code { font-size: 0.85em; }
+  </style>
+
+  <!-- Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    "name": "GMK87 Lighting Presets and Effects",
+    "description": "Complete guide to configuring GMK87 keyboard lighting presets, underglow effects, LED modes, and colors.",
+    "step": [
+      {
+        "@type": "HowToStep",
+        "name": "Choose a preset",
+        "text": "Select one of the 8 built-in presets: gaming, work, movie, chill, party, minimal, off, or default."
+      },
+      {
+        "@type": "HowToStep",
+        "name": "Apply the preset",
+        "text": "Run npm run preset followed by the preset name to apply it to your keyboard."
+      }
+    ]
+  }
+  </script>
+</head>
+<body class="bg-white text-gray-900">
+
+  <!-- Navigation -->
+  <nav id="navbar" class="sticky top-0 z-50 backdrop-blur-md border-b bg-white/80 border-gray-200 text-gray-900">
+    <div class="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+      <a href="../../" class="flex items-center gap-2.5 no-underline" style="color:inherit;">
+        <img src="../../icon.png" alt="GMK87" width="28" height="28" class="drop-shadow">
+        <span class="font-semibold text-base">GMK87</span>
+      </a>
+      <div class="hidden md:flex items-center gap-6 text-sm" style="color:inherit;">
+        <a href="../../#features" style="color:inherit;" class="opacity-60 hover:opacity-100 transition-opacity no-underline">Features</a>
+        <a href="../../#download" style="color:inherit;" class="opacity-60 hover:opacity-100 transition-opacity no-underline">Download</a>
+        <a href="../" style="color:inherit;" class="opacity-60 hover:opacity-100 transition-opacity no-underline">How To</a>
+        <a href="https://github.com/codedgar/gmk87-node" style="color:inherit;" class="opacity-60 hover:opacity-100 transition-opacity no-underline">GitHub</a>
+      </div>
+      <button id="mobile-menu-btn" class="md:hidden p-2 opacity-60">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg>
+      </button>
+    </div>
+    <div id="mobile-menu" class="hidden md:hidden border-t px-6 pb-4" style="border-color:inherit;">
+      <a href="../../#features" class="block py-2 text-sm opacity-70" style="color:inherit;">Features</a>
+      <a href="../../#download" class="block py-2 text-sm opacity-70" style="color:inherit;">Download</a>
+      <a href="../" class="block py-2 text-sm opacity-70" style="color:inherit;">How To</a>
+      <a href="https://github.com/codedgar/gmk87-node" class="block py-2 text-sm opacity-70" style="color:inherit;">GitHub</a>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="max-w-4xl mx-auto px-6 py-10">
+
+    <!-- Breadcrumb -->
+    <nav aria-label="Breadcrumb" class="mb-8 text-sm text-gray-500">
+      <ol class="flex items-center gap-1.5">
+        <li><a href="../../" class="hover:text-gray-900 transition-colors">Home</a></li>
+        <li class="before:content-['>'] before:mx-1.5 before:text-gray-400"><a href="../" class="hover:text-gray-900 transition-colors">How To</a></li>
+        <li class="before:content-['>'] before:mx-1.5 before:text-gray-400 text-gray-900 font-medium">Lighting Presets</li>
+      </ol>
+    </nav>
+
+    <!-- Page Header -->
+    <h1 class="text-3xl md:text-4xl font-bold mb-4">GMK87 Lighting Presets and Effects</h1>
+    <p class="text-lg text-gray-600 mb-10 leading-relaxed">
+      The GMK87 keyboard comes with 8 built-in lighting presets, 19 underglow effects, 5 LED modes, and 9 LED colors. This guide covers everything you need to configure your keyboard lighting exactly how you want it.
+    </p>
+
+    <p class="text-gray-600 mb-10">
+      For full CLI reference and advanced configuration options, see the <a href="../configure-lighting/" class="text-blue-600 hover:text-blue-800 underline">Configure Lighting</a> guide.
+    </p>
+
+    <!-- Table of Contents -->
+    <div class="bg-gray-50 rounded-xl border border-gray-200 p-6 mb-12">
+      <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">On this page</h2>
+      <ul class="space-y-2 text-sm">
+        <li><a href="#presets" class="text-blue-600 hover:text-blue-800">Built-in Presets</a></li>
+        <li><a href="#underglow-effects" class="text-blue-600 hover:text-blue-800">Underglow Effects</a></li>
+        <li><a href="#led-modes" class="text-blue-600 hover:text-blue-800">LED Modes</a></li>
+        <li><a href="#led-colors" class="text-blue-600 hover:text-blue-800">LED Colors</a></li>
+        <li><a href="#custom-combinations" class="text-blue-600 hover:text-blue-800">Custom Combinations</a></li>
+      </ul>
+    </div>
+
+    <!-- Built-in Presets -->
+    <section id="presets" class="mb-16">
+      <h2 class="text-2xl font-bold mb-2">Built-in Presets</h2>
+      <p class="text-gray-600 mb-6">Apply any preset instantly with a single command. Each preset configures underglow effects, LED color, brightness, and speed for a complete look.</p>
+
+      <div class="space-y-6">
+
+        <!-- Gaming -->
+        <div class="border border-gray-200 rounded-xl p-6">
+          <div class="flex items-start justify-between gap-4 mb-2">
+            <h3 class="text-lg font-semibold">gaming</h3>
+            <span class="shrink-0 text-xs font-medium bg-red-100 text-red-700 px-2.5 py-1 rounded-full">Aggressive</span>
+          </div>
+          <p class="text-gray-600 mb-4">Aggressive red theme with fast breathing effects. Full brightness, high saturation, and a fixed red LED. Built for intense gaming sessions where you want your setup to match the energy.</p>
+          <div class="bg-gray-900 rounded-lg p-4">
+            <code class="text-green-400 text-sm">npm run preset gaming</code>
+          </div>
+        </div>
+
+        <!-- Work -->
+        <div class="border border-gray-200 rounded-xl p-6">
+          <div class="flex items-start justify-between gap-4 mb-2">
+            <h3 class="text-lg font-semibold">work</h3>
+            <span class="shrink-0 text-xs font-medium bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full">Focused</span>
+          </div>
+          <p class="text-gray-600 mb-4">Subtle white backlight for focused work. Uses a steady full-color underglow at moderate brightness so your keys are visible without distraction. The LED stays on a calm white.</p>
+          <div class="bg-gray-900 rounded-lg p-4">
+            <code class="text-green-400 text-sm">npm run preset work</code>
+          </div>
+        </div>
+
+        <!-- Movie -->
+        <div class="border border-gray-200 rounded-xl p-6">
+          <div class="flex items-start justify-between gap-4 mb-2">
+            <h3 class="text-lg font-semibold">movie</h3>
+            <span class="shrink-0 text-xs font-medium bg-purple-100 text-purple-700 px-2.5 py-1 rounded-full">Ambient</span>
+          </div>
+          <p class="text-gray-600 mb-4">Purple wave effect with moderate brightness for a cinematic ambient look. Slow, flowing wave animation that adds atmosphere without pulling focus from the screen.</p>
+          <div class="bg-gray-900 rounded-lg p-4">
+            <code class="text-green-400 text-sm">npm run preset movie</code>
+          </div>
+        </div>
+
+        <!-- Chill -->
+        <div class="border border-gray-200 rounded-xl p-6">
+          <div class="flex items-start justify-between gap-4 mb-2">
+            <h3 class="text-lg font-semibold">chill</h3>
+            <span class="shrink-0 text-xs font-medium bg-teal-100 text-teal-700 px-2.5 py-1 rounded-full">Relaxed</span>
+          </div>
+          <p class="text-gray-600 mb-4">Calm cyan breathing effect for relaxed typing. Slow speed, low brightness, and a soothing teal LED. Perfect for late-night browsing or casual use.</p>
+          <div class="bg-gray-900 rounded-lg p-4">
+            <code class="text-green-400 text-sm">npm run preset chill</code>
+          </div>
+        </div>
+
+        <!-- Party -->
+        <div class="border border-gray-200 rounded-xl p-6">
+          <div class="flex items-start justify-between gap-4 mb-2">
+            <h3 class="text-lg font-semibold">party</h3>
+            <span class="shrink-0 text-xs font-medium bg-yellow-100 text-yellow-700 px-2.5 py-1 rounded-full">Flashy</span>
+          </div>
+          <p class="text-gray-600 mb-4">Fast rainbow effects for maximum visual impact. Rainbow waterfall at full speed and brightness with a pulsing rainbow LED. The most eye-catching preset available.</p>
+          <div class="bg-gray-900 rounded-lg p-4">
+            <code class="text-green-400 text-sm">npm run preset party</code>
+          </div>
+        </div>
+
+        <!-- Minimal -->
+        <div class="border border-gray-200 rounded-xl p-6">
+          <div class="flex items-start justify-between gap-4 mb-2">
+            <h3 class="text-lg font-semibold">minimal</h3>
+            <span class="shrink-0 text-xs font-medium bg-gray-100 text-gray-700 px-2.5 py-1 rounded-full">Clean</span>
+          </div>
+          <p class="text-gray-600 mb-4">All lighting effects disabled for minimal distraction. Underglow off, LED color off, zero brightness. For users who want a clean, no-glow keyboard.</p>
+          <div class="bg-gray-900 rounded-lg p-4">
+            <code class="text-green-400 text-sm">npm run preset minimal</code>
+          </div>
+        </div>
+
+        <!-- Off -->
+        <div class="border border-gray-200 rounded-xl p-6">
+          <div class="flex items-start justify-between gap-4 mb-2">
+            <h3 class="text-lg font-semibold">off</h3>
+            <span class="shrink-0 text-xs font-medium bg-gray-100 text-gray-700 px-2.5 py-1 rounded-full">None</span>
+          </div>
+          <p class="text-gray-600 mb-4">Turns off all lighting completely. Both underglow and LED are disabled. Use this when you want absolute zero light output from your keyboard.</p>
+          <div class="bg-gray-900 rounded-lg p-4">
+            <code class="text-green-400 text-sm">npm run preset off</code>
+          </div>
+        </div>
+
+        <!-- Default -->
+        <div class="border border-gray-200 rounded-xl p-6">
+          <div class="flex items-start justify-between gap-4 mb-2">
+            <h3 class="text-lg font-semibold">default</h3>
+            <span class="shrink-0 text-xs font-medium bg-green-100 text-green-700 px-2.5 py-1 rounded-full">Factory</span>
+          </div>
+          <p class="text-gray-600 mb-4">Restores the keyboard to its default factory lighting configuration. Horizontal dimming wave with moderate brightness, rainbow mode enabled, and a blinking red LED.</p>
+          <div class="bg-gray-900 rounded-lg p-4">
+            <code class="text-green-400 text-sm">npm run preset default</code>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Underglow Effects -->
+    <section id="underglow-effects" class="mb-16">
+      <h2 class="text-2xl font-bold mb-2">Underglow Effects</h2>
+      <p class="text-gray-600 mb-6">The GMK87 supports 19 underglow effects, each identified by an index number. Use the <code class="bg-gray-100 px-1.5 py-0.5 rounded text-gray-800">--effect</code> flag to set one by name or number.</p>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm border border-gray-200 rounded-xl overflow-hidden">
+          <thead>
+            <tr class="bg-gray-50">
+              <th class="text-left px-4 py-3 font-semibold text-gray-700 border-b border-gray-200 w-16">Index</th>
+              <th class="text-left px-4 py-3 font-semibold text-gray-700 border-b border-gray-200">Effect Name</th>
+              <th class="text-left px-4 py-3 font-semibold text-gray-700 border-b border-gray-200">Description</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            <tr><td class="px-4 py-3 font-mono text-gray-500">0</td><td class="px-4 py-3 font-medium">off</td><td class="px-4 py-3 text-gray-600">Disables underglow completely</td></tr>
+            <tr><td class="px-4 py-3 font-mono text-gray-500">1</td><td class="px-4 py-3 font-medium">horizontal-dimming-wave</td><td class="px-4 py-3 text-gray-600">Horizontal wave that dims across the keys</td></tr>
+            <tr><td class="px-4 py-3 font-mono text-gray-500">2</td><td class="px-4 py-3 font-medium">horizontal-pulse-wave</td><td class="px-4 py-3 text-gray-600">Horizontal wave with a pulsing intensity</td></tr>
+            <tr><td class="px-4 py-3 font-mono text-gray-500">3</td><td class="px-4 py-3 font-medium">waterfall</td><td class="px-4 py-3 text-gray-600">Color cascades downward like a waterfall</td></tr>
+            <tr><td class="px-4 py-3 font-mono text-gray-500">4</td><td class="px-4 py-3 font-medium">full-cycling-colors</td><td class="px-4 py-3 text-gray-600">All keys cycle through colors simultaneously</td></tr>
+            <tr><td class="px-4 py-3 font-mono text-gray-500">5</td><td class="px-4 py-3 font-medium">breathing</td><td class="px-4 py-3 text-gray-600">Smooth fade in and out like breathing</td></tr>
+            <tr><td class="px-4 py-3 font-mono text-gray-500">6</td><td class="px-4 py-3 font-medium">full-one-color</td><td class="px-4 py-3 text-gray-600">Solid single color across all keys</td></tr>
+            <tr><td class="px-4 py-3 font-mono text-gray-500">7</td><td class="px-4 py-3 font-medium">glow-pressed-key</td><td class="px-4 py-3 text-gray-600">Lights up only the key you press</td></tr>
+            <tr><td class="px-4 py-3 font-mono text-gray-500">8</td><td class="px-4 py-3 font-medium">glow-spreading</td><td class="px-4 py-3 text-gray-600">Light radiates outward from the pressed key</td></tr>
+            <tr><td class="px-4 py-3 font-mono text-gray-500">9</td><td class="px-4 py-3 font-medium">glow-row</td><td class="px-4 py-3 text-gray-600">Lights up the entire row of the pressed key</td></tr>
+            <tr><td class="px-4 py-3 font-mono text-gray-500">10</td><td class="px-4 py-3 font-medium">random-pattern</td><td class="px-4 py-3 text-gray-600">Random keys light up in random colors</td></tr>
+            <tr><td class="px-4 py-3 font-mono text-gray-500">11</td><td class="px-4 py-3 font-medium">rainbow-cycle</td><td class="px-4 py-3 text-gray-600">Rainbow gradient cycles across the keyboard</td></tr>
+            <tr><td class="px-4 py-3 font-mono text-gray-500">12</td><td class="px-4 py-3 font-medium">rainbow-waterfall</td><td class="px-4 py-3 text-gray-600">Rainbow colors cascade downward</td></tr>
+            <tr><td class="px-4 py-3 font-mono text-gray-500">13</td><td class="px-4 py-3 font-medium">wave-from-center</td><td class="px-4 py-3 text-gray-600">Light wave radiates outward from the center</td></tr>
+            <tr><td class="px-4 py-3 font-mono text-gray-500">14</td><td class="px-4 py-3 font-medium">circling-jk</td><td class="px-4 py-3 text-gray-600">Light circles around the J and K keys</td></tr>
+            <tr><td class="px-4 py-3 font-mono text-gray-500">15</td><td class="px-4 py-3 font-medium">raining</td><td class="px-4 py-3 text-gray-600">Random keys light up and fade like rain drops</td></tr>
+            <tr><td class="px-4 py-3 font-mono text-gray-500">16</td><td class="px-4 py-3 font-medium">wave-left-right</td><td class="px-4 py-3 text-gray-600">Wave sweeps from left to right across keys</td></tr>
+            <tr><td class="px-4 py-3 font-mono text-gray-500">17</td><td class="px-4 py-3 font-medium">slow-saturation-cycle</td><td class="px-4 py-3 text-gray-600">Slowly cycles through saturation levels</td></tr>
+            <tr><td class="px-4 py-3 font-mono text-gray-500">18</td><td class="px-4 py-3 font-medium">slow-rainbow-from-center</td><td class="px-4 py-3 text-gray-600">Slow rainbow that expands from the center</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="mt-4 bg-gray-50 rounded-lg p-4 text-sm text-gray-600">
+        <strong>Example:</strong> Set the underglow to rainbow cycle at full brightness and fast speed:
+        <div class="bg-gray-900 rounded-lg p-3 mt-2">
+          <code class="text-green-400">node src/configureLights.js --effect rainbow-cycle --brightness 9 --speed 0</code>
+        </div>
+      </div>
+    </section>
+
+    <!-- LED Modes -->
+    <section id="led-modes" class="mb-16">
+      <h2 class="text-2xl font-bold mb-2">LED Modes</h2>
+      <p class="text-gray-600 mb-6">The big LED (screen area indicator) supports 5 display modes. Set it with the <code class="bg-gray-100 px-1.5 py-0.5 rounded text-gray-800">--led-mode</code> flag.</p>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm border border-gray-200 rounded-xl overflow-hidden">
+          <thead>
+            <tr class="bg-gray-50">
+              <th class="text-left px-4 py-3 font-semibold text-gray-700 border-b border-gray-200 w-16">Mode</th>
+              <th class="text-left px-4 py-3 font-semibold text-gray-700 border-b border-gray-200">Name</th>
+              <th class="text-left px-4 py-3 font-semibold text-gray-700 border-b border-gray-200">Description</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            <tr><td class="px-4 py-3 font-mono text-gray-500">0</td><td class="px-4 py-3 font-medium">Blinking One Color</td><td class="px-4 py-3 text-gray-600">LED blinks in a single color at a steady interval</td></tr>
+            <tr><td class="px-4 py-3 font-mono text-gray-500">1</td><td class="px-4 py-3 font-medium">Pulse Rainbow</td><td class="px-4 py-3 text-gray-600">LED pulses through rainbow colors smoothly</td></tr>
+            <tr><td class="px-4 py-3 font-mono text-gray-500">2</td><td class="px-4 py-3 font-medium">Blinking One Color (Alt)</td><td class="px-4 py-3 text-gray-600">Alternate blinking pattern in a single color</td></tr>
+            <tr><td class="px-4 py-3 font-mono text-gray-500">3</td><td class="px-4 py-3 font-medium">Fixed Color</td><td class="px-4 py-3 text-gray-600">Stays on a single solid color with no animation</td></tr>
+            <tr><td class="px-4 py-3 font-mono text-gray-500">4</td><td class="px-4 py-3 font-medium">Fixed Color (Alt)</td><td class="px-4 py-3 text-gray-600">Alternate fixed color display mode</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="mt-4 bg-gray-50 rounded-lg p-4 text-sm text-gray-600">
+        <strong>Example:</strong> Set the LED to a fixed blue:
+        <div class="bg-gray-900 rounded-lg p-3 mt-2">
+          <code class="text-green-400">node src/configureLights.js --led-mode 3 --led-color blue</code>
+        </div>
+      </div>
+    </section>
+
+    <!-- LED Colors -->
+    <section id="led-colors" class="mb-16">
+      <h2 class="text-2xl font-bold mb-2">LED Colors</h2>
+      <p class="text-gray-600 mb-6">The LED supports 9 color presets. Set them by name or number with the <code class="bg-gray-100 px-1.5 py-0.5 rounded text-gray-800">--led-color</code> flag.</p>
+
+      <div class="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-3 gap-3">
+        <div class="flex items-center gap-3 border border-gray-200 rounded-lg p-3">
+          <div class="w-6 h-6 rounded-full shrink-0 border border-gray-200" style="background:#ef4444;"></div>
+          <div><span class="font-medium text-sm">Red</span><span class="text-xs text-gray-400 ml-1.5">0</span></div>
+        </div>
+        <div class="flex items-center gap-3 border border-gray-200 rounded-lg p-3">
+          <div class="w-6 h-6 rounded-full shrink-0 border border-gray-200" style="background:#f97316;"></div>
+          <div><span class="font-medium text-sm">Orange</span><span class="text-xs text-gray-400 ml-1.5">1</span></div>
+        </div>
+        <div class="flex items-center gap-3 border border-gray-200 rounded-lg p-3">
+          <div class="w-6 h-6 rounded-full shrink-0 border border-gray-200" style="background:#eab308;"></div>
+          <div><span class="font-medium text-sm">Yellow</span><span class="text-xs text-gray-400 ml-1.5">2</span></div>
+        </div>
+        <div class="flex items-center gap-3 border border-gray-200 rounded-lg p-3">
+          <div class="w-6 h-6 rounded-full shrink-0 border border-gray-200" style="background:#22c55e;"></div>
+          <div><span class="font-medium text-sm">Green</span><span class="text-xs text-gray-400 ml-1.5">3</span></div>
+        </div>
+        <div class="flex items-center gap-3 border border-gray-200 rounded-lg p-3">
+          <div class="w-6 h-6 rounded-full shrink-0 border border-gray-200" style="background:#14b8a6;"></div>
+          <div><span class="font-medium text-sm">Teal</span><span class="text-xs text-gray-400 ml-1.5">4</span></div>
+        </div>
+        <div class="flex items-center gap-3 border border-gray-200 rounded-lg p-3">
+          <div class="w-6 h-6 rounded-full shrink-0 border border-gray-200" style="background:#3b82f6;"></div>
+          <div><span class="font-medium text-sm">Blue</span><span class="text-xs text-gray-400 ml-1.5">5</span></div>
+        </div>
+        <div class="flex items-center gap-3 border border-gray-200 rounded-lg p-3">
+          <div class="w-6 h-6 rounded-full shrink-0 border border-gray-200" style="background:#a855f7;"></div>
+          <div><span class="font-medium text-sm">Purple</span><span class="text-xs text-gray-400 ml-1.5">6</span></div>
+        </div>
+        <div class="flex items-center gap-3 border border-gray-200 rounded-lg p-3">
+          <div class="w-6 h-6 rounded-full shrink-0 border border-gray-200" style="background:#ffffff;"></div>
+          <div><span class="font-medium text-sm">White</span><span class="text-xs text-gray-400 ml-1.5">7</span></div>
+        </div>
+        <div class="flex items-center gap-3 border border-gray-200 rounded-lg p-3">
+          <div class="w-6 h-6 rounded-full shrink-0 border border-gray-200" style="background:#1f2937;"></div>
+          <div><span class="font-medium text-sm">Off</span><span class="text-xs text-gray-400 ml-1.5">8</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Custom Combinations -->
+    <section id="custom-combinations" class="mb-16">
+      <h2 class="text-2xl font-bold mb-2">Custom Combinations</h2>
+      <p class="text-gray-600 mb-6">You can mix and match any underglow effect, LED mode, color, brightness, and speed to create your own setup. Pass multiple flags in a single command.</p>
+
+      <h3 class="text-lg font-semibold mb-3">Available parameters</h3>
+      <div class="overflow-x-auto mb-6">
+        <table class="w-full text-sm border border-gray-200 rounded-xl overflow-hidden">
+          <thead>
+            <tr class="bg-gray-50">
+              <th class="text-left px-4 py-3 font-semibold text-gray-700 border-b border-gray-200">Flag</th>
+              <th class="text-left px-4 py-3 font-semibold text-gray-700 border-b border-gray-200">Range</th>
+              <th class="text-left px-4 py-3 font-semibold text-gray-700 border-b border-gray-200">Description</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            <tr><td class="px-4 py-3 font-mono text-gray-700">--effect</td><td class="px-4 py-3 text-gray-500">name or 0-18</td><td class="px-4 py-3 text-gray-600">Underglow effect</td></tr>
+            <tr><td class="px-4 py-3 font-mono text-gray-700">--brightness</td><td class="px-4 py-3 text-gray-500">0-9</td><td class="px-4 py-3 text-gray-600">Underglow brightness (0=off, 9=max)</td></tr>
+            <tr><td class="px-4 py-3 font-mono text-gray-700">--speed</td><td class="px-4 py-3 text-gray-500">0-9</td><td class="px-4 py-3 text-gray-600">Effect speed (0=fast, 9=slow)</td></tr>
+            <tr><td class="px-4 py-3 font-mono text-gray-700">--orientation</td><td class="px-4 py-3 text-gray-500">0 or 1</td><td class="px-4 py-3 text-gray-600">Direction (0=left-to-right, 1=right-to-left)</td></tr>
+            <tr><td class="px-4 py-3 font-mono text-gray-700">--rainbow</td><td class="px-4 py-3 text-gray-500">true/false</td><td class="px-4 py-3 text-gray-600">Enable rainbow color cycling</td></tr>
+            <tr><td class="px-4 py-3 font-mono text-gray-700">--red --green --blue</td><td class="px-4 py-3 text-gray-500">0-255</td><td class="px-4 py-3 text-gray-600">Custom hue RGB values</td></tr>
+            <tr><td class="px-4 py-3 font-mono text-gray-700">--led-mode</td><td class="px-4 py-3 text-gray-500">0-4</td><td class="px-4 py-3 text-gray-600">LED display mode</td></tr>
+            <tr><td class="px-4 py-3 font-mono text-gray-700">--led-color</td><td class="px-4 py-3 text-gray-500">name or 0-8</td><td class="px-4 py-3 text-gray-600">LED color preset</td></tr>
+            <tr><td class="px-4 py-3 font-mono text-gray-700">--led-saturation</td><td class="px-4 py-3 text-gray-500">0-9</td><td class="px-4 py-3 text-gray-600">LED saturation level</td></tr>
+            <tr><td class="px-4 py-3 font-mono text-gray-700">--led-rainbow</td><td class="px-4 py-3 text-gray-500">true/false</td><td class="px-4 py-3 text-gray-600">LED rainbow mode</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="text-lg font-semibold mb-3">Examples</h3>
+      <div class="space-y-4">
+        <div class="bg-gray-50 rounded-lg p-4">
+          <p class="text-sm text-gray-600 mb-2">Cyan breathing at medium brightness with a fixed teal LED:</p>
+          <div class="bg-gray-900 rounded-lg p-3">
+            <code class="text-green-400 text-sm">node src/configureLights.js --effect breathing --red 0 --green 255 --blue 255 --brightness 5 --speed 6 --led-mode 3 --led-color teal</code>
+          </div>
+        </div>
+
+        <div class="bg-gray-50 rounded-lg p-4">
+          <p class="text-sm text-gray-600 mb-2">Reactive key glow with rainbow enabled and a pulsing LED:</p>
+          <div class="bg-gray-900 rounded-lg p-3">
+            <code class="text-green-400 text-sm">node src/configureLights.js --effect glow-pressed-key --rainbow true --brightness 7 --led-mode 1</code>
+          </div>
+        </div>
+
+        <div class="bg-gray-50 rounded-lg p-4">
+          <p class="text-sm text-gray-600 mb-2">Slow green rain effect (Matrix style) with a fixed green LED:</p>
+          <div class="bg-gray-900 rounded-lg p-3">
+            <code class="text-green-400 text-sm">node src/configureLights.js --effect raining --red 0 --green 255 --blue 0 --brightness 7 --speed 2 --led-mode 3 --led-color green</code>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
+        <strong>Tip:</strong> You can also create your own preset file. Copy <code class="bg-blue-100 px-1 py-0.5 rounded">presets.json</code> from the project root, modify it, and load it with <code class="bg-blue-100 px-1 py-0.5 rounded">node src/loadPreset.js mypreset --file ./my-presets.json</code>.
+      </div>
+    </section>
+
+    <!-- Back link -->
+    <div class="border-t border-gray-200 pt-8 mt-8">
+      <a href="../configure-lighting/" class="text-blue-600 hover:text-blue-800 text-sm font-medium inline-flex items-center gap-1.5">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 8H1m0 0l6-6M1 8l6 6"/></svg>
+        Configure Lighting guide
+      </a>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-[#0a0c12] text-gray-500 py-12 px-6 border-t border-gray-800">
+    <div class="max-w-4xl mx-auto text-center text-sm">
+      <p class="mb-3">MIT License. Made by <a href="https://github.com/codedgar" class="text-gray-400 hover:text-white transition-colors">Codedgar</a></p>
+      <p class="mb-4">
+        <a href="https://github.com/codedgar/gmk87-node" class="text-gray-400 hover:text-white transition-colors">GitHub</a>
+        <span class="mx-2">&middot;</span>
+        <a href="https://github.com/codedgar/gmk87-node/releases/latest" class="text-gray-400 hover:text-white transition-colors">Releases</a>
+      </p>
+    </div>
+  </footer>
+
+  <!-- Mobile menu toggle -->
+  <script>
+    document.getElementById('mobile-menu-btn').addEventListener('click', function() {
+      document.getElementById('mobile-menu').classList.toggle('hidden');
+    });
+  </script>
+
+</body>
+</html>
