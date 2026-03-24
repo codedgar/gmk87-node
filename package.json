@@ -1,6 +1,6 @@
 {
   "name": "gmk87-hid-uploader",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Node.js utilities for uploading images and syncing time on GMK87 keyboard displays via HID protocol",
   "type": "module",
   "main": "electron/main.cjs",
