@@ -674,6 +674,11 @@ input[type="range"]::-webkit-slider-thumb {
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 300px;
+  flex: 1;
+}
+
+.upload-clear-btn {
+  flex-shrink: 0;
 }
 
 /* Spinner */

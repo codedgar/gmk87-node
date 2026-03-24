@@ -1,17 +1,20 @@
 /**
  * Upload Image view
+ * Supports independent file selection for each slot (0 and 1)
  */
 const UploadView = {
-  _filePath: null,
-  _isGif: false,
-  _slot: 0,
+  _slot0File: null,
+  _slot1File: null,
+  _slot0IsGif: false,
+  _slot1IsGif: false,
   _frameDuration: 100,
   _uploading: false,
 
   render() {
-    this._filePath = null;
-    this._isGif = false;
-    this._slot = 0;
+    this._slot0File = null;
+    this._slot1File = null;
+    this._slot0IsGif = false;
+    this._slot1IsGif = false;
     this._frameDuration = 100;
     this._uploading = false;
 
@@ -23,10 +26,20 @@ const UploadView = {
       </div>
 
       <div class="card section-gap">
-        <div class="card-title">Image File</div>
+        <div class="card-title">Slot 0</div>
         <div class="file-picker">
-          <button class="btn" id="upload-pick-file">Choose File</button>
-          <span class="file-name" id="upload-file-name">No file selected</span>
+          <button class="btn" id="upload-pick-slot0">Choose File</button>
+          <span class="file-name" id="upload-slot0-name">No file selected</span>
+          <button class="btn btn-sm upload-clear-btn" id="upload-clear-slot0" style="display:none;">Clear</button>
+        </div>
+      </div>
+
+      <div class="card section-gap">
+        <div class="card-title">Slot 1</div>
+        <div class="file-picker">
+          <button class="btn" id="upload-pick-slot1">Choose File</button>
+          <span class="file-name" id="upload-slot1-name">No file selected</span>
+          <button class="btn btn-sm upload-clear-btn" id="upload-clear-slot1" style="display:none;">Clear</button>
         </div>
       </div>
 
@@ -40,14 +53,6 @@ const UploadView = {
         </div>
       </div>
 
-      <div class="card section-gap">
-        <div class="card-title">Target Slot</div>
-        <div class="toggle-group">
-          <button class="toggle-btn active" data-slot="0">Slot 0</button>
-          <button class="toggle-btn" data-slot="1">Slot 1</button>
-        </div>
-      </div>
-
       <button class="btn btn-primary" id="upload-btn" disabled>
         Upload
       </button>
@@ -56,26 +61,71 @@ const UploadView = {
     this._bind();
   },
 
+  _updateGifSection() {
+    const gifSection = document.getElementById("upload-gif-section");
+    if (this._slot0IsGif || this._slot1IsGif) {
+      gifSection.classList.add("visible");
+    } else {
+      gifSection.classList.remove("visible");
+    }
+  },
+
+  _updateUploadBtn() {
+    const btn = document.getElementById("upload-btn");
+    btn.disabled = this._uploading || (!this._slot0File && !this._slot1File);
+  },
+
   _bind() {
-    document.getElementById("upload-pick-file").addEventListener("click", async () => {
+    // Slot 0 file picker
+    document.getElementById("upload-pick-slot0").addEventListener("click", async () => {
       if (this._uploading) return;
       const result = await window.gmk87.openFile();
       if (result.success && result.data) {
-        this._filePath = result.data;
-        this._isGif = result.data.toLowerCase().endsWith(".gif");
-        const name = result.data.split(/[/\\]/).pop();
-        document.getElementById("upload-file-name").textContent = name;
-        document.getElementById("upload-btn").disabled = false;
-
-        const gifSection = document.getElementById("upload-gif-section");
-        if (this._isGif) {
-          gifSection.classList.add("visible");
-        } else {
-          gifSection.classList.remove("visible");
-        }
+        this._slot0File = result.data;
+        this._slot0IsGif = result.data.toLowerCase().endsWith(".gif");
+        document.getElementById("upload-slot0-name").textContent = result.data.split(/[/\\]/).pop();
+        document.getElementById("upload-clear-slot0").style.display = "";
+        this._updateGifSection();
+        this._updateUploadBtn();
       }
     });
 
+    // Slot 1 file picker
+    document.getElementById("upload-pick-slot1").addEventListener("click", async () => {
+      if (this._uploading) return;
+      const result = await window.gmk87.openFile();
+      if (result.success && result.data) {
+        this._slot1File = result.data;
+        this._slot1IsGif = result.data.toLowerCase().endsWith(".gif");
+        document.getElementById("upload-slot1-name").textContent = result.data.split(/[/\\]/).pop();
+        document.getElementById("upload-clear-slot1").style.display = "";
+        this._updateGifSection();
+        this._updateUploadBtn();
+      }
+    });
+
+    // Clear buttons
+    document.getElementById("upload-clear-slot0").addEventListener("click", () => {
+      if (this._uploading) return;
+      this._slot0File = null;
+      this._slot0IsGif = false;
+      document.getElementById("upload-slot0-name").textContent = "No file selected";
+      document.getElementById("upload-clear-slot0").style.display = "none";
+      this._updateGifSection();
+      this._updateUploadBtn();
+    });
+
+    document.getElementById("upload-clear-slot1").addEventListener("click", () => {
+      if (this._uploading) return;
+      this._slot1File = null;
+      this._slot1IsGif = false;
+      document.getElementById("upload-slot1-name").textContent = "No file selected";
+      document.getElementById("upload-clear-slot1").style.display = "none";
+      this._updateGifSection();
+      this._updateUploadBtn();
+    });
+
+    // Frame delay slider
     const delaySlider = document.getElementById("upload-frame-delay");
     const delayValue = document.getElementById("upload-frame-delay-value");
     delaySlider.addEventListener("input", () => {
@@ -83,20 +133,12 @@ const UploadView = {
       delayValue.textContent = `${delaySlider.value}ms`;
     });
 
-    document.querySelectorAll("[data-slot]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        if (this._uploading) return;
-        document.querySelectorAll("[data-slot]").forEach((b) => b.classList.remove("active"));
-        btn.classList.add("active");
-        this._slot = parseInt(btn.dataset.slot);
-      });
-    });
-
+    // Upload button
     document.getElementById("upload-btn").addEventListener("click", () => this._upload());
   },
 
   async _upload() {
-    if (!this._filePath || this._uploading) return;
+    if ((!this._slot0File && !this._slot1File) || this._uploading) return;
 
     this._uploading = true;
     const btn = document.getElementById("upload-btn");
@@ -104,20 +146,27 @@ const UploadView = {
     btn.innerHTML = `<span class="spinner"></span> Uploading...`;
 
     // Disable all controls during upload
-    document.getElementById("upload-pick-file").disabled = true;
-    document.querySelectorAll("[data-slot]").forEach((b) => (b.disabled = true));
+    document.getElementById("upload-pick-slot0").disabled = true;
+    document.getElementById("upload-pick-slot1").disabled = true;
+    document.getElementById("upload-clear-slot0").disabled = true;
+    document.getElementById("upload-clear-slot1").disabled = true;
+
+    const hasGif = this._slot0IsGif || this._slot1IsGif;
 
     const result = await window.gmk87.uploadImage({
-      filePath: this._filePath,
-      slot: this._slot,
-      frameDuration: this._isGif ? this._frameDuration : undefined,
+      slot0File: this._slot0File,
+      slot1File: this._slot1File,
+      frameDuration: hasGif ? this._frameDuration : undefined,
     });
 
     this._uploading = false;
     btn.disabled = false;
     btn.innerHTML = "Upload";
-    document.getElementById("upload-pick-file").disabled = false;
-    document.querySelectorAll("[data-slot]").forEach((b) => (b.disabled = false));
+    document.getElementById("upload-pick-slot0").disabled = false;
+    document.getElementById("upload-pick-slot1").disabled = false;
+    document.getElementById("upload-clear-slot0").disabled = false;
+    document.getElementById("upload-clear-slot1").disabled = false;
+    this._updateUploadBtn();
 
     if (result.success) {
       Toast.success("Image uploaded successfully");

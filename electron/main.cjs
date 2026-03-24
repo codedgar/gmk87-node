@@ -101,18 +101,16 @@ function setupIpcHandlers() {
     }
   });
 
-  ipcMain.handle("keyboard:uploadImage", async (_event, { filePath, slot, frameDuration }) => {
+  ipcMain.handle("keyboard:uploadImage", async (_event, { slot0File, slot1File, frameDuration }) => {
     try {
       const gmk87 = await getApi();
-      const isGif = path.extname(filePath).toLowerCase() === ".gif";
-      const options = {
-        slot0File: slot === 0 ? filePath : undefined,
-        slot1File: slot === 1 ? filePath : undefined,
-      };
-      if (isGif && frameDuration) {
+      const imagePath = slot0File || slot1File;
+      const slot = slot0File ? 0 : 1;
+      const options = { slot0File, slot1File };
+      if (frameDuration !== undefined) {
         options.frameDuration = frameDuration;
       }
-      await gmk87.uploadImage(filePath, slot, options);
+      await gmk87.uploadImage(imagePath, slot, options);
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
