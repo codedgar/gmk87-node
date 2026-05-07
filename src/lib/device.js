@@ -334,10 +334,10 @@ async function sendWithPosition(device, commandId, data, pos = 0) {
   // Python uses a 50-second per-read timeout with no overall limit.
   // We use a generous overall timeout to handle slow USB controllers/hubs.
   const startTime = Date.now();
-  const timeout = 5000; // 5 seconds total timeout
+  const timeout = 30000; // 30 seconds total timeout (Python uses 50s per read!)
 
   while (Date.now() - startTime < timeout) {
-    const response = await readResponse(device, 200); // Match Python's patient read style
+    const response = await readResponse(device, 5000); // Python uses 50s timeout per read
     if (!response) {
       // No response yet, continue looping
       await delay(5);
@@ -842,25 +842,17 @@ async function uploadImageToDevice(imagePath, imageIndex = 0, options = {}) {
     }
     const newConfig = buildConfigBuffer(currentConfig, configChanges);
 
-    // Step 5: Upload sequence
-    // INIT → INIT → CONFIG → COMMIT → READY → INIT → FRAME_DATA → COMMIT
-    // The INIT after READY comes from Python reference's upload_frames() —
-    // it signals the keyboard to start accepting frame data
-    // Each step must succeed before proceeding — if the keyboard doesn't ACK,
-    // continuing will just cascade failures (e.g. sending 0x21 to an unready device)
-    console.log("Initializing upload...");
-    if (!await sendWithPosition(device, 0x01, Buffer.alloc(0), 0))
-      throw new Error("Upload failed: keyboard did not respond to INIT (step 1). Check USB connection.");
-    if (!await sendWithPosition(device, 0x01, Buffer.alloc(0), 0))
-      throw new Error("Upload failed: keyboard did not respond to INIT (step 2). Check USB connection.");
-    if (!await sendWithPosition(device, 0x06, newConfig, 0))
-      throw new Error("Upload failed: keyboard did not accept CONFIG. Check USB connection.");
-    if (!await sendWithPosition(device, 0x02, Buffer.alloc(0), 0))
-      throw new Error("Upload failed: keyboard did not accept COMMIT. Check USB connection.");
-    if (!await sendWithPosition(device, 0x23, Buffer.alloc(0), 0))
-      throw new Error("Upload failed: keyboard did not respond to READY (0x23). It may need more time — try again.");
-    if (!await sendWithPosition(device, 0x01, Buffer.alloc(0), 0))
-      throw new Error("Upload failed: keyboard did not respond to INIT after READY. Try again.");
+    // Step 5: Upload sequence — matches Python reference exactly:
+    //   update_config():  INIT(0x01) → CONFIG(0x06) → COMMIT(0x02)
+    //   upload_frames():  READY(0x23) → INIT(0x01) → DATA(0x21)×N → COMMIT(0x02)
+    console.log("Writing config to device...");
+    await sendWithPosition(device, 0x01, Buffer.alloc(0), 0);
+    await sendWithPosition(device, 0x06, newConfig, 0);
+    await sendWithPosition(device, 0x02, Buffer.alloc(0), 0);
+
+    console.log("Starting upload session (0x23 → 0x01)...");
+    await sendWithPosition(device, 0x23, Buffer.alloc(0), 0);
+    await sendWithPosition(device, 0x01, Buffer.alloc(0), 0);
 
     // Step 6: Send both slots as one continuous stream
     console.log("Uploading image data...");
