@@ -33,12 +33,15 @@
   <!-- Theme color -->
   <meta name="theme-color" content="#ffffff">
 
-  <!-- Tailwind -->
+  <!-- Fonts + Tailwind -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       theme: { extend: { fontFamily: {
-        sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"Segoe UI"', 'system-ui', 'Roboto', 'sans-serif'],
+        sans: ['Geist', '-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"Segoe UI"', 'system-ui', 'Roboto', 'sans-serif'],
         mono: ['"SF Mono"', '"Fira Code"', '"Cascadia Code"', 'Consolas', 'monospace'],
       }}}
     }
@@ -124,8 +127,31 @@
     ]
   }
   </script>
+<style>
+  code:not(pre code) {
+    background: #f3f4f6;
+    padding: 0.15em 0.4em;
+    border-radius: 0.25rem;
+    font-size: 0.9em;
+  }
+  h2, h3 { scroll-margin-top: 5rem; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+  a:focus-visible, button:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+</style>
 </head>
 <body class="bg-white text-gray-900 font-sans antialiased">
+
+  <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:bg-white focus:px-4 focus:py-2 focus:rounded-lg focus:shadow-lg focus:text-gray-900 focus:text-sm focus:font-medium">Skip to content</a>
 
   <!-- Nav -->
   <nav id="navbar" class="sticky top-0 z-50 backdrop-blur-md border-b bg-white/80 border-gray-200 text-gray-900">
@@ -140,7 +166,7 @@
         <a href="../" style="color:inherit;" class="opacity-60 hover:opacity-100 transition-opacity no-underline">How To</a>
         <a href="https://github.com/codedgar/gmk87-node" style="color:inherit;" class="opacity-60 hover:opacity-100 transition-opacity no-underline">GitHub</a>
       </div>
-      <button id="mobile-menu-btn" class="md:hidden p-2 opacity-60">
+      <button id="mobile-menu-btn" class="md:hidden p-2 opacity-60" aria-label="Open menu" aria-expanded="false">
         <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg>
       </button>
     </div>
@@ -153,7 +179,7 @@
   </nav>
 
   <!-- Main content -->
-  <main class="max-w-3xl mx-auto px-6 py-10">
+  <main id="main-content" class="max-w-3xl mx-auto px-6 py-12">
 
     <!-- Breadcrumb -->
     <nav aria-label="Breadcrumb" class="mb-8 text-sm text-gray-500">
@@ -175,23 +201,23 @@
       <div class="bg-gray-50 rounded-xl border border-gray-200 p-6">
         <ul class="space-y-3 text-gray-700">
           <li class="flex gap-3">
-            <span class="text-gray-400 font-mono text-sm mt-0.5 shrink-0">Resolution</span>
+            <span class="w-24 text-gray-400 font-mono text-sm mt-0.5 shrink-0">Resolution</span>
             <span><strong>240 x 135 pixels</strong> &mdash; landscape orientation. Images are automatically resized to fit.</span>
           </li>
           <li class="flex gap-3">
-            <span class="text-gray-400 font-mono text-sm mt-0.5 shrink-0">Formats&nbsp;&nbsp;</span>
+            <span class="w-24 text-gray-400 font-mono text-sm mt-0.5 shrink-0">Formats</span>
             <span><strong>PNG, JPG, BMP, and GIF</strong> (including animated GIFs).</span>
           </li>
           <li class="flex gap-3">
-            <span class="text-gray-400 font-mono text-sm mt-0.5 shrink-0">Slots&nbsp;&nbsp;&nbsp;&nbsp;</span>
+            <span class="w-24 text-gray-400 font-mono text-sm mt-0.5 shrink-0">Slots</span>
             <span><strong>2 image slots</strong> (slot 0 and slot 1). You can switch between them or show the clock.</span>
           </li>
           <li class="flex gap-3">
-            <span class="text-gray-400 font-mono text-sm mt-0.5 shrink-0">Animation&nbsp;</span>
+            <span class="w-24 text-gray-400 font-mono text-sm mt-0.5 shrink-0">Animation</span>
             <span><strong>Up to 36 total frames</strong> across both slots. For example, a 20-frame GIF in slot 0 and a 16-frame GIF in slot 1. Frames beyond 36 are automatically truncated.</span>
           </li>
           <li class="flex gap-3">
-            <span class="text-gray-400 font-mono text-sm mt-0.5 shrink-0">Display&nbsp;&nbsp;&nbsp;</span>
+            <span class="w-24 text-gray-400 font-mono text-sm mt-0.5 shrink-0">Display</span>
             <span>Three display modes: <strong>clock</strong> (default), <strong>slot 0</strong>, or <strong>slot 1</strong>.</span>
           </li>
         </ul>
@@ -206,7 +232,7 @@
         <li class="flex gap-3">
           <span class="flex-shrink-0 w-7 h-7 rounded-full bg-gray-900 text-white text-sm font-semibold flex items-center justify-center">1</span>
           <div>
-            <strong>Download and open the app</strong> from the <a href="../#download" class="text-blue-600 hover:text-blue-800 underline">download section</a> of the homepage.
+            <strong>Download and open the app</strong> from the <a href="../#download" class="text-indigo-600 hover:text-indigo-800 underline">download section</a> of the homepage.
           </div>
         </li>
         <li class="flex gap-3">
@@ -233,7 +259,7 @@
     <!-- Method 2: CLI -->
     <section class="mb-12">
       <h2 class="text-2xl font-semibold mb-4">Method 2: Using the CLI</h2>
-      <p class="text-gray-700 mb-4">The command-line interface gives you full control and is ideal for scripting or automation. Make sure you have <a href="https://nodejs.org/" class="text-blue-600 hover:text-blue-800 underline" rel="noopener">Node.js 14+</a> installed.</p>
+      <p class="text-gray-700 mb-4">The command-line interface gives you full control and is ideal for scripting or automation. Make sure you have <a href="https://nodejs.org/" class="text-indigo-600 hover:text-indigo-800 underline" rel="noopener">Node.js 14+</a> installed.</p>
 
       <h3 class="text-lg font-semibold mt-6 mb-3">Setup</h3>
       <div class="bg-gray-900 rounded-lg p-4 mb-6 overflow-x-auto">
@@ -392,8 +418,17 @@ await gmk87.showSlot(1);  // Display slot 0</code></pre>
   (function() {
     const btn = document.getElementById('mobile-menu-btn');
     const menu = document.getElementById('mobile-menu');
-    btn.addEventListener('click', function() { menu.classList.toggle('hidden'); });
-    menu.querySelectorAll('a').forEach(function(a) { a.addEventListener('click', function() { menu.classList.add('hidden'); }); });
+    btn.addEventListener('click', function() {
+      menu.classList.toggle('hidden');
+      const expanded = !menu.classList.contains('hidden');
+      btn.setAttribute('aria-expanded', expanded.toString());
+    });
+    menu.querySelectorAll('a').forEach(function(a) {
+      a.addEventListener('click', function() {
+        menu.classList.add('hidden');
+        btn.setAttribute('aria-expanded', 'false');
+      });
+    });
   })();
   </script>
 

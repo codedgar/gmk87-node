@@ -132,13 +132,16 @@
   }
   </script>
 
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       theme: {
         extend: {
           fontFamily: {
-            sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"Segoe UI"', 'system-ui', 'Roboto', 'sans-serif'],
+            sans: ['Geist', '-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"Segoe UI"', 'system-ui', 'Roboto', 'sans-serif'],
             mono: ['"SF Mono"', '"Fira Code"', '"Cascadia Code"', 'Consolas', 'monospace'],
           },
         },
@@ -146,8 +149,8 @@
     }
   </script>
   <style>
-    .prose h2 { scroll-margin-top: 5rem; }
-    .prose h3 { scroll-margin-top: 5rem; }
+    h2 { scroll-margin-top: 5rem; }
+    h3 { scroll-margin-top: 5rem; }
     .step-number {
       display: inline-flex;
       align-items: center;
@@ -155,7 +158,7 @@
       width: 2rem;
       height: 2rem;
       border-radius: 9999px;
-      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      background: #111827;
       color: white;
       font-weight: 700;
       font-size: 0.875rem;
@@ -176,9 +179,22 @@
       font-size: 0.875rem;
       line-height: 1.6;
     }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+    a:focus-visible, button:focus-visible {
+      outline: 2px solid #3b82f6;
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
   </style>
 </head>
-<body class="bg-white text-gray-900">
+<body class="bg-white text-gray-900 font-sans antialiased">
+  <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:bg-white focus:px-4 focus:py-2 focus:rounded-lg focus:shadow-lg focus:text-gray-900 focus:text-sm focus:font-medium">Skip to content</a>
 
   <!-- Nav -->
   <nav id="navbar" class="sticky top-0 z-50 backdrop-blur-md border-b bg-white/80 border-gray-200 text-gray-900">
@@ -193,7 +209,7 @@
         <a href="../" style="color:inherit;" class="opacity-60 hover:opacity-100 transition-opacity no-underline">How To</a>
         <a href="https://github.com/codedgar/gmk87-node" style="color:inherit;" class="opacity-60 hover:opacity-100 transition-opacity no-underline">GitHub</a>
       </div>
-      <button id="mobile-menu-btn" class="md:hidden p-2 opacity-60">
+      <button id="mobile-menu-btn" class="md:hidden p-2 opacity-60" aria-label="Open menu" aria-expanded="false">
         <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg>
       </button>
     </div>
@@ -217,7 +233,7 @@
   </div>
 
   <!-- Main Content -->
-  <main class="max-w-3xl mx-auto px-6 py-10 prose">
+  <main id="main-content" class="max-w-3xl mx-auto px-6 py-12">
 
     <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-gray-900 mb-4">How to Set Up the GMK87 Keyboard on macOS and Linux</h1>
 
@@ -510,8 +526,11 @@ sudo udevadm trigger</code></pre>
 
   <!-- Mobile menu toggle -->
   <script>
-    document.getElementById('mobile-menu-btn').addEventListener('click', () => {
-      document.getElementById('mobile-menu').classList.toggle('hidden');
+    const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+    mobileMenuBtn.addEventListener('click', () => {
+      const menu = document.getElementById('mobile-menu');
+      const isHidden = menu.classList.toggle('hidden');
+      mobileMenuBtn.setAttribute('aria-expanded', !isHidden);
     });
   </script>
 

@@ -104,13 +104,16 @@
   }
   </script>
 
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       theme: {
         extend: {
           fontFamily: {
-            sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"Segoe UI"', 'system-ui', 'Roboto', 'sans-serif'],
+            sans: ['Geist', '-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"Segoe UI"', 'system-ui', 'Roboto', 'sans-serif'],
             mono: ['"SF Mono"', '"Fira Code"', '"Cascadia Code"', 'Consolas', 'monospace'],
           },
         },
@@ -121,13 +124,42 @@
     .guide-card {
       transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
+    .tracking-display { letter-spacing: -0.025em; }
     .guide-card:hover {
       transform: translateY(-4px);
       box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
     }
+    .reveal {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+                  transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .reveal.revealed {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .reveal-delay-1 { transition-delay: 100ms; }
+    .reveal-delay-2 { transition-delay: 200ms; }
+    .reveal-delay-3 { transition-delay: 300ms; }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+      .reveal { opacity: 1; transform: none; }
+    }
+    a:focus-visible, button:focus-visible {
+      outline: 2px solid #3b82f6;
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
   </style>
 </head>
-<body class="bg-white text-gray-900 font-sans">
+<body class="bg-white text-gray-900 font-sans antialiased">
+
+  <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:bg-white focus:px-4 focus:py-2 focus:rounded-lg focus:shadow-lg focus:text-gray-900 focus:text-sm focus:font-medium">Skip to content</a>
 
   <nav id="navbar" class="sticky top-0 z-50 backdrop-blur-md border-b bg-white/80 border-gray-200 text-gray-900">
     <div class="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
@@ -141,8 +173,8 @@
         <a href="./" style="color:inherit;" class="font-medium opacity-100 no-underline">How To</a>
         <a href="https://github.com/codedgar/gmk87-node" style="color:inherit;" class="opacity-60 hover:opacity-100 transition-opacity no-underline">GitHub</a>
       </div>
-      <button id="mobile-menu-btn" class="md:hidden p-2 opacity-60">
-        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h14M3 10h14M3 14h14"/></svg>
+      <button id="mobile-menu-btn" class="md:hidden p-2 opacity-60" aria-label="Open menu" aria-expanded="false">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h14M3 10h14M3 14h14"/></svg>
       </button>
     </div>
     <div id="mobile-menu" class="hidden md:hidden border-t px-6 pb-4" style="border-color:inherit;">
@@ -153,7 +185,7 @@
     </div>
   </nav>
 
-  <main class="max-w-4xl mx-auto px-6 py-12">
+  <main id="main-content" class="max-w-4xl mx-auto px-6 py-12">
 
     <!-- Breadcrumb -->
     <nav aria-label="Breadcrumb" class="mb-8 text-sm text-gray-500">
@@ -166,15 +198,15 @@
 
     <!-- Hero -->
     <header class="mb-14">
-      <h1 class="text-3xl sm:text-4xl font-bold tracking-tight mb-4">GMK87 Keyboard Guides - How to Configure Your Zuoya GMK87</h1>
+      <h1 class="text-4xl sm:text-5xl font-extrabold tracking-display mb-4">How-To Guides</h1>
       <p class="text-lg text-gray-500 max-w-2xl">Step-by-step tutorials for setting up your GMK87 keyboard, uploading custom images, configuring RGB lighting, and more.</p>
     </header>
 
     <!-- Guide Cards -->
-    <section class="grid sm:grid-cols-2 gap-6 mb-20">
+    <section class="grid sm:grid-cols-2 gap-6 mb-20 reveal">
 
       <!-- Setup Guide -->
-      <a href="setup/" class="guide-card block rounded-xl border border-gray-200 p-6 no-underline text-inherit bg-white">
+      <a href="setup/" class="guide-card block rounded-xl border border-gray-200 p-6 no-underline text-inherit bg-white" aria-label="Setup Guide">
         <div class="w-11 h-11 rounded-lg bg-blue-50 flex items-center justify-center mb-4">
           <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25A2.25 2.25 0 0 1 5.25 3h13.5A2.25 2.25 0 0 1 21 5.25Z"/>
@@ -185,7 +217,7 @@
       </a>
 
       <!-- Upload Images -->
-      <a href="upload-images/" class="guide-card block rounded-xl border border-gray-200 p-6 no-underline text-inherit bg-white">
+      <a href="upload-images/" class="guide-card block rounded-xl border border-gray-200 p-6 no-underline text-inherit bg-white" aria-label="Upload Images">
         <div class="w-11 h-11 rounded-lg bg-violet-50 flex items-center justify-center mb-4">
           <svg class="w-6 h-6 text-violet-600" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z"/>
@@ -196,7 +228,7 @@
       </a>
 
       <!-- Configure Lighting -->
-      <a href="configure-lighting/" class="guide-card block rounded-xl border border-gray-200 p-6 no-underline text-inherit bg-white">
+      <a href="configure-lighting/" class="guide-card block rounded-xl border border-gray-200 p-6 no-underline text-inherit bg-white" aria-label="Configure Lighting">
         <div class="w-11 h-11 rounded-lg bg-amber-50 flex items-center justify-center mb-4">
           <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 0 0 1.5-.189m-1.5.189a6.01 6.01 0 0 1-1.5-.189m3.75 7.478a12.06 12.06 0 0 1-4.5 0m3.75 2.383a14.406 14.406 0 0 1-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 1 0-7.517 0c.85.493 1.509 1.333 1.509 2.316V18"/>
@@ -207,7 +239,7 @@
       </a>
 
       <!-- Lighting Presets -->
-      <a href="lighting-presets/" class="guide-card block rounded-xl border border-gray-200 p-6 no-underline text-inherit bg-white">
+      <a href="lighting-presets/" class="guide-card block rounded-xl border border-gray-200 p-6 no-underline text-inherit bg-white" aria-label="Lighting Presets">
         <div class="w-11 h-11 rounded-lg bg-emerald-50 flex items-center justify-center mb-4">
           <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M4.098 19.902a3.75 3.75 0 0 0 5.304 0l6.401-6.402M6.75 21A3.75 3.75 0 0 1 3 17.25V4.125C3 3.504 3.504 3 4.125 3h5.25c.621 0 1.125.504 1.125 1.125v4.072M6.75 21a3.75 3.75 0 0 0 3.75-3.75V8.197M6.75 21h13.125c.621 0 1.125-.504 1.125-1.125v-5.25c0-.621-.504-1.125-1.125-1.125h-4.072M10.5 8.197l2.88-2.88c.438-.439 1.15-.439 1.59 0l3.712 3.713c.44.44.44 1.152 0 1.59l-2.879 2.88M6.75 17.25h.008v.008H6.75v-.008Z"/>
@@ -221,13 +253,13 @@
 
     <!-- FAQ Section -->
     <section class="mb-16">
-      <h2 class="text-2xl font-bold tracking-tight mb-8">Frequently Asked Questions</h2>
+      <h2 class="text-2xl font-bold tracking-tight mb-8 reveal">Frequently Asked Questions</h2>
       <div class="space-y-4">
 
         <details class="group border border-gray-200 rounded-lg">
           <summary class="flex items-center justify-between cursor-pointer px-6 py-4 text-sm font-medium select-none">
             How do I configure the GMK87 screen on macOS?
-            <svg class="w-5 h-5 text-gray-400 shrink-0 ml-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
+            <svg class="w-5 h-5 text-gray-400 shrink-0 ml-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
           </summary>
           <div class="px-6 pb-4 text-sm text-gray-600 leading-relaxed">
             The official Zuoya software only works on Windows. The GMK87 Configurator is a free, open-source tool that lets you configure your GMK87 keyboard display, lighting, and clock on macOS, Windows, and Linux. Download the app from <a href="https://codedgar.github.io/gmk87-node/" class="text-blue-600 hover:underline">codedgar.github.io/gmk87-node</a> or use the CLI.
@@ -237,7 +269,7 @@
         <details class="group border border-gray-200 rounded-lg">
           <summary class="flex items-center justify-between cursor-pointer px-6 py-4 text-sm font-medium select-none">
             How do I upload custom images to the GMK87 keyboard?
-            <svg class="w-5 h-5 text-gray-400 shrink-0 ml-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
+            <svg class="w-5 h-5 text-gray-400 shrink-0 ml-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
           </summary>
           <div class="px-6 pb-4 text-sm text-gray-600 leading-relaxed">
             Use the GMK87 Configurator app to drag and drop images onto your keyboard display. The screen supports 240x135 resolution and accepts PNG, JPG, BMP, and animated GIFs up to 36 frames. You can also use the CLI: <code class="bg-gray-100 px-1.5 py-0.5 rounded font-mono text-xs">npm run sendimage -- --slot0 yourimage.png</code>
@@ -247,7 +279,7 @@
         <details class="group border border-gray-200 rounded-lg">
           <summary class="flex items-center justify-between cursor-pointer px-6 py-4 text-sm font-medium select-none">
             Does the GMK87 work on Linux?
-            <svg class="w-5 h-5 text-gray-400 shrink-0 ml-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
+            <svg class="w-5 h-5 text-gray-400 shrink-0 ml-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
           </summary>
           <div class="px-6 pb-4 text-sm text-gray-600 leading-relaxed">
             Yes. The GMK87 Configurator supports Linux. Install the app or clone the repository and run <code class="bg-gray-100 px-1.5 py-0.5 rounded font-mono text-xs">npm install</code>. You'll need to set up udev rules for USB access: <code class="bg-gray-100 px-1.5 py-0.5 rounded font-mono text-xs">sudo cp 50-gmk87.rules /etc/udev/rules.d/</code>
@@ -257,7 +289,7 @@
         <details class="group border border-gray-200 rounded-lg">
           <summary class="flex items-center justify-between cursor-pointer px-6 py-4 text-sm font-medium select-none">
             Is there a GMK87 software alternative for Mac?
-            <svg class="w-5 h-5 text-gray-400 shrink-0 ml-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
+            <svg class="w-5 h-5 text-gray-400 shrink-0 ml-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
           </summary>
           <div class="px-6 pb-4 text-sm text-gray-600 leading-relaxed">
             Yes. The GMK87 Configurator is a free, open-source alternative to the official Zuoya software. It works on macOS, Windows, and Linux and provides the same functionality: image upload, lighting configuration, and time sync.
@@ -267,7 +299,7 @@
         <details class="group border border-gray-200 rounded-lg">
           <summary class="flex items-center justify-between cursor-pointer px-6 py-4 text-sm font-medium select-none">
             How do I change the RGB colors on my GMK87 keyboard?
-            <svg class="w-5 h-5 text-gray-400 shrink-0 ml-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
+            <svg class="w-5 h-5 text-gray-400 shrink-0 ml-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
           </summary>
           <div class="px-6 pb-4 text-sm text-gray-600 leading-relaxed">
             Use the GMK87 Configurator app to visually pick colors, or use the CLI: <code class="bg-gray-100 px-1.5 py-0.5 rounded font-mono text-xs">npm run lights -- --effect rainbow-cycle --brightness 5</code>. The keyboard supports 19 underglow effects and custom RGB values.
@@ -291,9 +323,30 @@
   </footer>
 
   <script>
-    const btn = document.getElementById('mobile-menu-btn');
-    const menu = document.getElementById('mobile-menu');
-    btn.addEventListener('click', () => menu.classList.toggle('hidden'));
+    // Scroll reveals
+    (function() {
+      var reveals = document.querySelectorAll('.reveal');
+      if (!window.IntersectionObserver) {
+        reveals.forEach(function(el) { el.classList.add('revealed'); });
+        return;
+      }
+      var observer = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('revealed');
+            observer.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.15 });
+      reveals.forEach(function(el) { observer.observe(el); });
+    })();
+
+    var btn = document.getElementById('mobile-menu-btn');
+    var menu = document.getElementById('mobile-menu');
+    btn.addEventListener('click', function() {
+      var isHidden = menu.classList.toggle('hidden');
+      btn.setAttribute('aria-expanded', !isHidden);
+    });
   </script>
 
 </body>
