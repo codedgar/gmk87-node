@@ -15,7 +15,8 @@ jobs:
         include:
           - os: macos-latest
             platform: mac
-          - os: windows-latest
+          # windows-latest ships Visual Studio 18 (2026), which node-gyp can't use yet
+          - os: windows-2022
             platform: win
           - os: ubuntu-latest
             platform: linux
