@@ -67,11 +67,7 @@ const TimeSyncView = {
     btn.disabled = false;
     btn.innerHTML = "Sync Time";
 
-    if (result.success) {
-      Toast.success("Time synced to keyboard");
-    } else {
-      Toast.error(result.error || "Failed to sync time");
-    }
+    Toast.result(result, "Time synced to keyboard", "Failed to sync time");
   },
 
   destroy() {

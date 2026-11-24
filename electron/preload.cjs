@@ -17,6 +17,17 @@ contextBridge.exposeInMainWorld("gmk87", {
   showSlot: (slot) => ipcRenderer.invoke("keyboard:showSlot", slot),
   syncTime: () => ipcRenderer.invoke("keyboard:syncTime"),
 
+  // Diagnostics
+  runDiagnostics: (opts) => ipcRenderer.invoke("diagnostics:run", opts),
+  onDiagnosticsProgress: (cb) => {
+    const listener = (_event, progress) => cb(progress);
+    ipcRenderer.on("diagnostics:progress", listener);
+    return () => ipcRenderer.removeListener("diagnostics:progress", listener);
+  },
+  saveDiagnostics: (text) => ipcRenderer.invoke("diagnostics:save", text),
+  copyText: (text) => ipcRenderer.invoke("clipboard:writeText", text),
+  getLastIssue: () => ipcRenderer.invoke("diagnostics:lastIssue"),
+
   // System
   openFile: () => ipcRenderer.invoke("dialog:openFile"),
   openExternal: (url) => ipcRenderer.invoke("shell:openExternal", url),

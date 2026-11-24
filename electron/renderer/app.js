@@ -3,12 +3,16 @@
  */
 const App = {
   _currentView: null,
+  _currentHash: null,
+  /** Set while a long-running operation (diagnostics) must not be interrupted */
+  locked: false,
 
   views: {
     home: HomeView,
     upload: UploadView,
     colors: ColorsView,
     timesync: TimeSyncView,
+    diagnostics: DiagnosticsView,
   },
 
   init() {
@@ -18,6 +22,14 @@ const App = {
 
   route() {
     const hash = window.location.hash.slice(1) || "home";
+    if (this.locked) {
+      // Revert navigation; the revert fires another hashchange which lands here and is ignored
+      if (hash !== this._currentHash) {
+        window.location.hash = this._currentHash;
+        Toast.error("Wait for diagnostics to finish");
+      }
+      return;
+    }
     const view = this.views[hash];
     if (!view) {
       window.location.hash = "home";
@@ -30,6 +42,7 @@ const App = {
     }
 
     this._currentView = view;
+    this._currentHash = hash;
     Sidebar.render(hash);
     view.render();
   },

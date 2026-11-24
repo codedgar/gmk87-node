@@ -341,7 +341,7 @@ const ColorsView = {
     this._setAllDisabled(false);
 
     if (result.success) {
-      Toast.success(`Preset "${name}" applied`);
+      Toast.result(result, `Preset "${name}" applied`, "Failed to apply preset");
       // Reload config to reflect changes
       const cfgResult = await window.gmk87.readConfig();
       if (cfgResult.success) {
@@ -355,7 +355,7 @@ const ColorsView = {
         this._renderBody();
       }
     } else {
-      Toast.error(result.error || "Failed to apply preset");
+      Toast.result(result, `Preset "${name}" applied`, "Failed to apply preset");
     }
   },
 
@@ -408,11 +408,7 @@ const ColorsView = {
     btn.innerHTML = "Apply Changes";
     this._setAllDisabled(false);
 
-    if (result.success) {
-      Toast.success("Lighting applied");
-    } else {
-      Toast.error(result.error || "Failed to apply lighting");
-    }
+    Toast.result(result, "Lighting applied", "Failed to apply lighting");
   },
 
   _setAllDisabled(disabled) {

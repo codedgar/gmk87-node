@@ -1,0 +1,35 @@
+# The desktop app opens this form pre-filled (electron/renderer/views/diagnostics.js).
+# Keep the file name and the field ids (description, summary, report) in sync with it.
+name: Report a problem
+description: Something isn't working with your GMK87 (upload, time sync, lighting, keyboard not found)
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Using the desktop app? Open **Diagnostics** and click **Report on GitHub** to fill in this form.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: What did you try, and what happened? Include your setup (USB hub or port, cable or dongle).
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Filled in by the app.
+
+  - type: textarea
+    id: report
+    attributes:
+      label: Diagnostics report
+      description: |
+        Paste the report from the app, or attach the saved .json file.
+        No app? Paste the error message.
+      render: json
+    validations:
+      required: true

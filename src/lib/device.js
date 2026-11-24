@@ -31,6 +31,16 @@ let DEBUG = process.env.DEBUG === "1";
 /** Toggle debug logging at runtime */
 function setDebug(enabled) { DEBUG = !!enabled; }
 
+/** @type {Function|null} Optional per-command trace hook (used by diagnostics only) */
+let protocolTrace = null;
+
+/**
+ * Set a hook called after every sendWithPosition() command with timing/ACK info.
+ * Pass null to remove. No effect on protocol behavior when unset.
+ * @param {Function|null} fn - Receives { cmd, pos, len, ms, ok, response, discarded }
+ */
+function setProtocolTrace(fn) { protocolTrace = typeof fn === "function" ? fn : null; }
+
 // -------------------------------------------------------
 // Common Utilities
 // -------------------------------------------------------
@@ -335,6 +345,12 @@ async function sendWithPosition(device, commandId, data, pos = 0) {
   // We use a generous overall timeout to handle slow USB controllers/hubs.
   const startTime = Date.now();
   const timeout = 30000; // 30 seconds total timeout (Python uses 50s per read!)
+  let discarded = 0;
+  const trace = (ok, response) => {
+    if (protocolTrace) {
+      protocolTrace({ cmd: commandId, pos, len: data.length, ms: Date.now() - startTime, ok, response, discarded });
+    }
+  };
 
   while (Date.now() - startTime < timeout) {
     const response = await readResponse(device, 5000); // Python uses 50s timeout per read
@@ -351,15 +367,18 @@ async function sendWithPosition(device, commandId, data, pos = 0) {
     // So we verify command byte which is the most reliable indicator
     if (response[3] === buffer[3]) {
       // Match! Return data from byte 4 onwards (like Python does)
+      trace(true, response);
       return response.slice(4);
     }
 
     // Non-matching response, discard and keep reading (like Python's while True loop)
+    discarded++;
     if (DEBUG) console.log(`  [DEBUG sendWithPosition] Discarding non-matching response (cmd: 0x${response[3].toString(16)}), continuing...`);
   }
 
   // Timeout - no matching response received
   console.warn(`  ⚠ Timeout waiting for response to command 0x${commandId.toString(16).padStart(2, "0")}`);
+  trace(false, null);
   return null;
 }
 
@@ -1168,4 +1187,5 @@ export {
   getKeyboardInfo,
   // Debug
   setDebug,
+  setProtocolTrace,
 };

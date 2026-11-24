@@ -20,6 +20,7 @@
   --accent-hover: #2563eb;
   --success: #22c55e;
   --error: #ef4444;
+  --warning: #eab308;
   --radius-sm: 6px;
   --radius-md: 10px;
   --font-stack: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
@@ -728,6 +729,27 @@ input[type="range"]::-webkit-slider-thumb {
   border-left-color: var(--error);
 }
 
+.toast.warning {
+  border-left-color: var(--warning);
+}
+
+.toast-problem {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 380px;
+}
+
+.toast-problem-text {
+  line-height: 1.45;
+}
+
+.toast-problem-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .toast.fade-out {
   animation: toast-out 0.2s ease-in forwards;
 }
@@ -807,4 +829,284 @@ input[type="range"]::-webkit-slider-thumb {
 
 .frame-delay-section.visible {
   display: block;
+}
+
+/* Diagnostics
+ * Rows follow VIA's settings list (label left, control right, hairline dividers);
+ * mode switch + bottom action bar follow SteelSeries GG. */
+
+.diag-panel {
+  padding: 4px 20px;
+}
+
+.diag-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+#diag-tests .diag-row:last-child {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.diag-row-text {
+  min-width: 0;
+}
+
+.diag-row-label {
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.diag-row-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.diag-row-desc-warn {
+  color: var(--warning);
+}
+
+.diag-row .toggle-group,
+.diag-row .switch {
+  flex-shrink: 0;
+}
+
+.diag-actionbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0 16px;
+}
+
+.diag-actionbar-note {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.diag-confirm-list {
+  margin: 10px 0 12px 18px;
+  line-height: 1.6;
+}
+
+.diag-confirm-list strong {
+  color: var(--warning);
+}
+
+/* Status panel (running + finished) */
+
+.diag-status-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 0;
+}
+
+.diag-status-icon {
+  display: flex;
+  width: 22px;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.diag-status-icon .material-icons {
+  font-size: 22px;
+}
+
+.diag-status-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.diag-status-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.diag-status-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.diag-live {
+  min-height: 17px;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: "SF Mono", "Menlo", "Monaco", "Consolas", monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diag-bar {
+  height: 3px;
+  margin-bottom: 16px;
+  border-radius: 2px;
+  background: var(--border-subtle);
+  overflow: hidden;
+}
+
+.diag-bar span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  transition: width 0.25s ease-out;
+}
+
+.diag-icon-pass { color: var(--success); }
+.diag-icon-warn { color: var(--warning); }
+.diag-icon-fail { color: var(--error); }
+.diag-icon-skip { color: var(--text-muted); }
+
+.diag-steps {
+  list-style: none;
+}
+
+.diag-step {
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  align-items: center;
+  column-gap: 10px;
+  padding: 9px 0;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.diag-step .material-icons {
+  font-size: 16px;
+}
+
+.diag-step-skip .diag-step-name {
+  color: var(--text-muted);
+}
+
+.diag-step-ms {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.diag-step-detail {
+  grid-column: 2 / 4;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  user-select: text;
+}
+
+.diag-all-steps {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.diag-all-steps summary {
+  padding: 12px 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.diag-all-steps summary::-webkit-details-marker {
+  display: none;
+}
+
+.diag-all-steps summary::before {
+  content: "chevron_right";
+  font-family: "Material Icons";
+  font-size: 16px;
+  transition: transform 0.15s;
+}
+
+.diag-all-steps[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.diag-all-steps summary:hover {
+  color: var(--text-primary);
+}
+
+.diag-all-steps summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.diag-all-steps .diag-steps {
+  padding-bottom: 8px;
+}
+
+/* Report */
+
+.diag-report-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 16px 0 8px;
+}
+
+.diag-report-head .card-title {
+  margin: 0;
+}
+
+.diag-report-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.diag-report-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.diag-report {
+  color-scheme: dark;
+  background: var(--bg-base);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin-bottom: 20px;
+  max-height: 280px;
+  overflow: auto;
+  font-family: "SF Mono", "Menlo", "Monaco", "Consolas", monospace;
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  white-space: pre;
+  user-select: text;
+}
+
+.diag-report:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.diag-report::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.diag-report::-webkit-scrollbar-track,
+.diag-report::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.diag-report::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 3px;
 }

@@ -168,10 +168,6 @@ const UploadView = {
     document.getElementById("upload-clear-slot1").disabled = false;
     this._updateUploadBtn();
 
-    if (result.success) {
-      Toast.success("Image uploaded successfully");
-    } else {
-      Toast.error(result.error || "Upload failed");
-    }
+    Toast.result(result, "Image uploaded", "Upload failed");
   },
 };

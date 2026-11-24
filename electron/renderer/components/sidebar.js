@@ -23,6 +23,11 @@ const Sidebar = {
       label: "Time Sync",
       icon: `<span class="material-icons">schedule</span>`,
     },
+    {
+      id: "diagnostics",
+      label: "Diagnostics",
+      icon: `<span class="material-icons">troubleshoot</span>`,
+    },
   ],
 
   async render(activeId) {
@@ -70,7 +75,8 @@ const Sidebar = {
 
     // Report issue handler
     document.getElementById("report-issue").addEventListener("click", () => {
-      window.gmk87.openExternal("https://github.com/codedgar/gmk87-node/issues");
+      // Runs the read-only check and offers a pre-filled GitHub issue
+      DiagnosticsView.startReport();
     });
   },
 
