@@ -349,8 +349,8 @@
           <h3 class="text-lg font-semibold text-gray-900 mb-1 mt-0">Create a udev rule for HID access</h3>
           <p class="text-gray-600 mb-3">Without this rule, only <code>root</code> can communicate with the keyboard over HID. Create a udev rule file:</p>
           <pre><code>sudo nano /etc/udev/rules.d/99-gmk87.rules</code></pre>
-          <p class="text-gray-600 mt-3 mb-3">Add the following line (the GMK87 uses vendor ID <code>0x05ac</code> and product ID <code>0x024f</code>):</p>
-          <pre><code>KERNEL=="hidraw*", ATTRS{idVendor}=="05ac", ATTRS{idProduct}=="024f", MODE="0666"</code></pre>
+          <p class="text-gray-600 mt-3 mb-3">Add the following line (the GMK87 uses vendor ID <code>0x320f</code> and product ID <code>0x5055</code>):</p>
+          <pre><code>KERNEL=="hidraw*", ATTRS{idVendor}=="320f", ATTRS{idProduct}=="5055", MODE="0666"</code></pre>
           <p class="text-gray-600 mt-3 mb-3">Then reload udev rules and re-plug the keyboard:</p>
           <pre><code>sudo udevadm control --reload-rules
 sudo udevadm trigger</code></pre>
